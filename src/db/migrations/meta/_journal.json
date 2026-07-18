@@ -8,6 +8,13 @@
       "when": 1784328243802,
       "tag": "0000_red_penance",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784335236633,
+      "tag": "0001_white_colleen_wing",
+      "breakpoints": true
     }
   ]
 }

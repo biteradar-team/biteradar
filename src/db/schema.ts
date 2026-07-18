@@ -1,5 +1,6 @@
-import {sql} from 'drizzle-orm';
+import {sql, type SQL} from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   boolean,
   char,
   check,
@@ -51,6 +52,43 @@ const geographyPoint = customType<{data: string; driverData: string}>({
   },
 });
 
+// Postgres full-text search vector (blueprint §8). Populated as a generated
+// STORED column from `normalized_text` (see `searchVector` below). drizzle-kit
+// may quote this type in generated SQL like it does `geography` — if so, unquote
+// it in the migration (same hand-edit as `geog`).
+const tsvector = customType<{data: string}>({
+  dataType() {
+    return 'tsvector';
+  },
+});
+
+// Shared definition of the search columns added to every free-text-searchable
+// table (restaurants, dishes, menu_items — blueprint §8). `normalizedText` is
+// written by the app via src/search `normalize()` at write time (NULL until the
+// admin/ingestion tool populates it). `searchVector` is derived in Postgres and
+// stays in sync automatically — no trigger. The 2-arg `to_tsvector('simple',…)`
+// form is IMMUTABLE, which a generated column requires; 'simple' because the
+// text is already normalized latin and PG ships no Serbian stemmer.
+const searchColumns = {
+  normalizedText: text(),
+  searchVector: tsvector().generatedAlwaysAs(
+    (): SQL => sql`to_tsvector('simple', coalesce(normalized_text, ''))`,
+  ),
+};
+
+// GIN indexes for a searchable table (blueprint §7: "GIN za tsvector/trigram"):
+// tsvector for full-text match, trigram on normalized_text for typo tolerance.
+const searchIndexes = (
+  table: string,
+  cols: {searchVector: AnyPgColumn; normalizedText: AnyPgColumn},
+) => [
+  index(`${table}_search_vector`).using('gin', cols.searchVector),
+  index(`${table}_normalized_trgm`).using(
+    'gin',
+    sql`${cols.normalizedText} gin_trgm_ops`,
+  ),
+];
+
 export const cityEnum = pgEnum('city', ['ns', 'bg']);
 export const locationStatusEnum = pgEnum('location_status', [
   'draft',
@@ -73,10 +111,12 @@ export const restaurants = pgTable(
     slug: text().notNull().unique(),
     name: text().notNull(),
     description: text(),
+    ...searchColumns,
     createdAt: timestamp({withTimezone: true}).notNull().defaultNow(),
     updatedAt: timestamp({withTimezone: true}).notNull().defaultNow(),
   },
-  () => [
+  (t) => [
+    ...searchIndexes('restaurants', t),
     // Don't leak brands that have no live (published) location yet.
     pgPolicy('restaurants_anon_select', {
       for: 'select',
@@ -221,10 +261,12 @@ export const dishes = pgTable(
     nameEn: text(),
     descriptionSr: text(),
     descriptionEn: text(),
+    ...searchColumns,
     createdAt: timestamp({withTimezone: true}).notNull().defaultNow(),
     updatedAt: timestamp({withTimezone: true}).notNull().defaultNow(),
   },
-  () => [
+  (t) => [
+    ...searchIndexes('dishes', t),
     pgPolicy('dishes_anon_select', {
       for: 'select',
       to: anonRole,
@@ -248,10 +290,12 @@ export const menuItems = pgTable(
     sectionName: text(),
     sortOrder: integer().notNull().default(0),
     isAvailable: boolean().notNull().default(true),
+    ...searchColumns,
     createdAt: timestamp({withTimezone: true}).notNull().defaultNow(),
     updatedAt: timestamp({withTimezone: true}).notNull().defaultNow(),
   },
   (t) => [
+    ...searchIndexes('menu_items', t),
     index('menu_items_location').on(t.locationId),
     index('menu_items_dish').on(t.dishId),
     pgPolicy('menu_items_anon_select', {
