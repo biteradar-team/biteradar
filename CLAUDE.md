@@ -16,7 +16,8 @@
 - `npm run dev` — dev server
 - `npm run build` — production build (must pass before any PR)
 - `npm run lint` — ESLint
-- (add test/typecheck commands here once configured)
+- `npm test` — Vitest unit tests (search normalization; must stay green)
+- `npm run db:search-smoke` — FTS + RLS round-trip against Supabase (needs `DATABASE_URL`)
 
 ## Git workflow
 - NEVER commit or push to `main`. Always: feature branch → PR. Branch protection enforces review.
