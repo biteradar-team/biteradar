@@ -1,20 +1,25 @@
 import createMiddleware from 'next-intl/middleware';
+import type {NextRequest} from 'next/server';
 import {routing} from './src/i18n/routing';
+import {updateSession} from './src/lib/supabase/middleware';
 
 /**
- * Locale routing entry point.
+ * Proxy (Next.js 16 renamed the `middleware` file convention to `proxy`).
  *
- * Next.js 16 renamed the `middleware` file convention to `proxy`
- * (see node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md).
- * next-intl still exposes its locale router as a middleware factory whose
- * return value is a plain `(request) => response` handler, so we simply mount
- * that handler as the default export of `proxy.ts`.
- *
- * This runs before rendering and, for `localePrefix: 'as-needed'`:
- *   "/"        → serves the `sr` messages (rewrite to the [locale] segment)
- *   "/en/..."  → serves the `en` messages
+ * Two concerns, split by path so neither touches the other:
+ *   /admin/*  → Supabase auth session refresh; NOT locale-routed (blueprint §6
+ *               puts the internal admin tool outside the localized public area).
+ *   else      → next-intl locale routing. For `localePrefix: 'as-needed'`:
+ *                 "/"       → sr messages   "/en/..." → en messages
  */
-export default createMiddleware(routing);
+const intlMiddleware = createMiddleware(routing);
+
+export default function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    return updateSession(request);
+  }
+  return intlMiddleware(request);
+}
 
 export const config = {
   // Run on app routes only. Skip API routes, Next internals, and any path
