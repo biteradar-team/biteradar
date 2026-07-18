@@ -6,14 +6,15 @@ import {setRequestLocale} from "next-intl/server";
 import {routing} from "@/src/i18n/routing";
 import "../globals.css";
 
+// 'latin-ext' is required for Serbian latin diacritics (đ ć č š ž).
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
 });
 
 export const metadata: Metadata = {
