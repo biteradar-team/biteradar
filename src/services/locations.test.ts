@@ -39,6 +39,17 @@ describe('LocationInputSchema', () => {
     expect(yes.location.acceptsCards).toBe(true);
   });
 
+  it('rejects a blank / whitespace / non-numeric price (was silently saved as 0)', () => {
+    for (const priceRsd of ['', '  ', 'abc']) {
+      expect(() =>
+        LocationInputSchema.parse({
+          ...valid,
+          menu: [{name: 'Ćevapi 10 kom', priceRsd}],
+        }),
+      ).toThrow();
+    }
+  });
+
   it('rejects an open day missing its times', () => {
     const bad = {
       ...valid,

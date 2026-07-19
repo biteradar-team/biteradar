@@ -35,7 +35,15 @@ const menuItem = z.object({
   name: z.string().trim().min(1, 'Naziv stavke je obavezan'),
   sectionName: z.string().trim().optional(),
   description: z.string().trim().optional(),
-  priceRsd: z.coerce.number().int().nonnegative(),
+  // The form always sends this as a string. `z.coerce.number()` alone treated an
+  // empty field as `Number('') === 0`, silently saving a real dish as "0 RSD";
+  // require a non-blank value first, THEN coerce.
+  priceRsd: z
+    .string()
+    .trim()
+    .min(1, 'Cena je obavezna')
+    .transform((s) => Number(s))
+    .pipe(z.number().int('Cena mora biti ceo broj').nonnegative('Cena ne može biti negativna')),
 });
 
 export const LocationInputSchema = z.object({
