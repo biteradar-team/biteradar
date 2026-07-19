@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio",
     "db:smoke": "node --env-file=.env.local --import tsx src/db/smoke.ts",
     "db:search-smoke": "node --env-file=.env.local --import tsx src/search/search-smoke.ts",
+    "db:seed-dishes": "node --env-file=.env.local --import tsx src/services/seed-dishes.ts",
     "test": "vitest run"
   },
   "dependencies": {

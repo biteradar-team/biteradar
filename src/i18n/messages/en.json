@@ -13,6 +13,16 @@
     "intro": "Browse places in {city} — menus with prices, opening hours and photos.",
     "backToSearch": "← Search"
   },
+  "Dishes": {
+    "heading": "Dishes",
+    "intro": "Pick a dish and compare prices across locations.",
+    "empty": "No dishes with prices yet."
+  },
+  "Dish": {
+    "intro": "{dish} prices across locations — cheapest first.",
+    "noOffers": "No location has {dish} on the menu yet.",
+    "backToDishes": "← All dishes"
+  },
   "Location": {
     "openingHours": "Opening hours",
     "menu": "Menu",

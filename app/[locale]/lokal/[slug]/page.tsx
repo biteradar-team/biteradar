@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import {notFound} from 'next/navigation';
 import {getTranslations, setRequestLocale} from 'next-intl/server';
+import {Link} from '@/src/i18n/navigation';
 import {CITY_NAMES as CITY} from '@/src/lib/cities';
 import {getPublishedLocationBySlug} from '@/src/services/locations';
 
@@ -153,7 +154,16 @@ export default async function LocationProfile({params}: Params) {
                     className="flex items-baseline justify-between gap-4 border-b border-zinc-100 pb-2 dark:border-zinc-900"
                   >
                     <div className="flex flex-col">
-                      <span>{item.name}</span>
+                      {item.dishSlug ? (
+                        <Link
+                          href={`/jelo/${item.dishSlug}`}
+                          className="w-fit hover:underline"
+                        >
+                          {item.name}
+                        </Link>
+                      ) : (
+                        <span>{item.name}</span>
+                      )}
                       {item.description ? (
                         <span className="text-xs text-zinc-500">
                           {item.description}

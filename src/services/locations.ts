@@ -2,6 +2,7 @@ import 'server-only';
 import {and, eq, sql} from 'drizzle-orm';
 import {db} from '@/src/db';
 import {
+  dishes,
   menuItemPrices,
   menuItems,
   openingHours,
@@ -9,6 +10,7 @@ import {
   restaurants,
 } from '@/src/db/schema';
 import {type City} from '@/src/lib/cities';
+import {matchDish, type DishCandidate} from '@/src/search/dish-match';
 import {expandSynonyms, normalize} from '@/src/search/normalize';
 import {type LocationPhoto, listLocationPhotos, photoPublicUrl} from './photos';
 import {
@@ -208,7 +210,13 @@ export type PublicLocation = {
     acceptsCards: 'yes' | 'no' | 'unknown';
   };
   hours: {day: number; opensAt: string; closesAt: string}[]; // open days only
-  menu: {sectionName: string; name: string; description: string; priceRsd: number}[];
+  menu: {
+    sectionName: string;
+    name: string;
+    description: string;
+    priceRsd: number;
+    dishSlug: string | null; // linked canonical dish → /jelo/[slug], or null
+  }[];
   photos: LocationPhoto[];
 };
 
@@ -258,6 +266,7 @@ export async function getPublishedLocationBySlug(
       name: menuItems.name,
       sectionName: menuItems.sectionName,
       description: menuItems.description,
+      dishSlug: dishes.slug,
       priceRsd: sql<number>`(
         select amount_rsd from menu_item_prices p
         where p.menu_item_id = ${menuItems.id}
@@ -265,6 +274,7 @@ export async function getPublishedLocationBySlug(
       )`,
     })
     .from(menuItems)
+    .leftJoin(dishes, eq(dishes.id, menuItems.dishId))
     .where(eq(menuItems.locationId, row.id))
     .orderBy(menuItems.sortOrder);
 
@@ -289,6 +299,7 @@ export async function getPublishedLocationBySlug(
       sectionName: m.sectionName ?? '',
       name: m.name,
       description: m.description ?? '',
+      dishSlug: m.dishSlug ?? null,
       priceRsd: Number(m.priceRsd ?? 0),
     })),
     photos,
@@ -433,6 +444,12 @@ async function insertChildren(tx: Tx, locationId: string, data: LocationInput) {
     }));
   if (openRows.length) await tx.insert(openingHours).values(openRows);
 
+  // Canonical-dish auto-link (blueprint §3.1): match each item's NAME to a
+  // seeded dish so /jelo price pages work. Load candidates once per txn.
+  const dishCandidates: DishCandidate[] = (
+    await tx.select({id: dishes.id, normalizedName: dishes.normalizedText}).from(dishes)
+  ).map((d) => ({id: d.id, normalizedName: d.normalizedName ?? ''}));
+
   for (const [i, item] of data.menu.entries()) {
     const [row] = await tx
       .insert(menuItems)
@@ -442,6 +459,7 @@ async function insertChildren(tx: Tx, locationId: string, data: LocationInput) {
         description: item.description,
         sectionName: item.sectionName,
         sortOrder: i,
+        dishId: matchDish(item.name, dishCandidates),
         normalizedText: normalize(
           [item.name, item.sectionName, item.description]
             .filter(Boolean)

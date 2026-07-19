@@ -13,6 +13,16 @@
     "intro": "Pregledaj lokale u {city} — meni sa cenama, radno vreme i fotografije.",
     "backToSearch": "← Pretraga"
   },
+  "Dishes": {
+    "heading": "Jela",
+    "intro": "Izaberi jelo i uporedi cene po lokalima.",
+    "empty": "Još nema jela sa unetim cenama."
+  },
+  "Dish": {
+    "intro": "Cene za {dish} po lokalima — najjeftinije prvo.",
+    "noOffers": "Nijedan lokal još nema {dish} u meniju.",
+    "backToDishes": "← Sva jela"
+  },
   "Location": {
     "openingHours": "Radno vreme",
     "menu": "Meni",
