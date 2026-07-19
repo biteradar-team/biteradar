@@ -74,3 +74,23 @@ export const LocationInputSchema = z.object({
 });
 
 export type LocationInput = z.infer<typeof LocationInputSchema>;
+
+/**
+ * Shape the admin form pre-fills from when editing. Plain/serializable (crosses
+ * the server→client boundary) and form-friendly: `acceptsCards` back as the
+ * tri-state string, prices as strings, times as HH:MM, only OPEN days listed.
+ */
+export type LocationEditData = {
+  brand: {name: string; description: string};
+  location: {
+    label: string;
+    city: 'ns' | 'bg';
+    address: string;
+    lat: number;
+    lng: number;
+    acceptsCards: 'yes' | 'no' | 'unknown';
+    status: 'draft' | 'published';
+  };
+  hours: {day: number; opensAt: string; closesAt: string}[];
+  menu: {name: string; sectionName: string; description: string; priceRsd: string}[];
+};

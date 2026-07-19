@@ -6,6 +6,7 @@ import {db} from "@/src/db";
 import {restaurantLocations, restaurants} from "@/src/db/schema";
 import {requireAdmin} from "@/src/lib/auth";
 import {createClient} from "@/src/lib/supabase/server";
+import DeleteButton from "./delete-button";
 
 export const metadata: Metadata = {title: "BiteRadar Admin"};
 
@@ -24,6 +25,8 @@ export default async function AdminDashboard() {
   // db bypasses RLS, so this lists drafts too (unlike the public site).
   const locations = await db
     .select({
+      id: restaurantLocations.id,
+      restaurantId: restaurantLocations.restaurantId,
       brand: restaurants.name,
       label: restaurantLocations.name,
       city: restaurantLocations.city,
@@ -73,12 +76,13 @@ export default async function AdminDashboard() {
               <th className="py-2 font-medium">Naziv</th>
               <th className="py-2 font-medium">Grad</th>
               <th className="py-2 font-medium">Status</th>
+              <th className="py-2 text-right font-medium">Akcije</th>
             </tr>
           </thead>
           <tbody>
-            {locations.map((l, i) => (
+            {locations.map((l) => (
               <tr
-                key={i}
+                key={l.id}
                 className="border-b border-zinc-100 dark:border-zinc-900"
               >
                 <td className="py-2 text-black dark:text-zinc-100">
@@ -100,6 +104,17 @@ export default async function AdminDashboard() {
                   >
                     {l.status === "published" ? "Objavljeno" : "Nacrt"}
                   </span>
+                </td>
+                <td className="py-2">
+                  <div className="flex items-center justify-end gap-4">
+                    <Link
+                      href={`/admin/${l.id}/edit`}
+                      className="text-sm text-zinc-600 hover:underline dark:text-zinc-400"
+                    >
+                      Uredi
+                    </Link>
+                    <DeleteButton restaurantId={l.restaurantId} name={l.brand} />
+                  </div>
                 </td>
               </tr>
             ))}
