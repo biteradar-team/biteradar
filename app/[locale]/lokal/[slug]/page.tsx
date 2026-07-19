@@ -1,8 +1,10 @@
 import type {Metadata} from 'next';
 import {notFound} from 'next/navigation';
 import {getTranslations, setRequestLocale} from 'next-intl/server';
+import JsonLd from '@/src/components/json-ld';
 import {Link} from '@/src/i18n/navigation';
 import {CITY_NAMES as CITY} from '@/src/lib/cities';
+import {restaurantJsonLd} from '@/src/lib/jsonld';
 import {getPublishedLocationBySlug} from '@/src/services/locations';
 
 // Weekday display order (Monday first); DB uses 0 = Sunday.
@@ -50,6 +52,7 @@ export default async function LocationProfile({params}: Params) {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10 text-black dark:text-zinc-100">
+      <JsonLd data={restaurantJsonLd(loc, locale)} />
       {/* Header */}
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">

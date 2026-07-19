@@ -23,6 +23,15 @@
     "noOffers": "No location has {dish} on the menu yet.",
     "backToDishes": "← All dishes"
   },
+  "Cuisines": {
+    "heading": "Categories",
+    "intro": "Pick a food category and find places.",
+    "empty": "No categories with locations yet."
+  },
+  "Cuisine": {
+    "intro": "Places serving “{cuisine}”.",
+    "backToCuisines": "← All categories"
+  },
   "Location": {
     "openingHours": "Opening hours",
     "menu": "Menu",

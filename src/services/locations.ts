@@ -2,10 +2,12 @@ import 'server-only';
 import {and, eq, sql} from 'drizzle-orm';
 import {db} from '@/src/db';
 import {
+  cuisines,
   dishes,
   menuItemPrices,
   menuItems,
   openingHours,
+  restaurantCuisines,
   restaurantLocations,
   restaurants,
 } from '@/src/db/schema';
@@ -66,7 +68,7 @@ export async function createLocation(
       })
       .returning({id: restaurantLocations.id, slug: restaurantLocations.slug});
 
-    await insertChildren(tx, location.id, data);
+    await insertChildren(tx, location.id, brand.id, data);
     return {locationId: location.id, slug: location.slug};
   });
 }
@@ -115,7 +117,7 @@ export async function updateLocation(
     // rows and only append a new price when the amount actually changed.
     await tx.delete(openingHours).where(eq(openingHours.locationId, locationId));
     await tx.delete(menuItems).where(eq(menuItems.locationId, locationId));
-    await insertChildren(tx, locationId, data);
+    await insertChildren(tx, locationId, loc.restaurantId, data);
   });
 }
 
@@ -208,7 +210,10 @@ export type PublicLocation = {
     city: 'ns' | 'bg';
     address: string;
     acceptsCards: 'yes' | 'no' | 'unknown';
+    lat: number;
+    lng: number;
   };
+  cuisines: string[]; // display names (nameSr), for JSON-LD servesCuisine
   hours: {day: number; opensAt: string; closesAt: string}[]; // open days only
   menu: {
     sectionName: string;
@@ -233,12 +238,15 @@ export async function getPublishedLocationBySlug(
   const [row] = await db
     .select({
       id: restaurantLocations.id,
+      restaurantId: restaurantLocations.restaurantId,
       brandName: restaurants.name,
       description: restaurants.description,
       label: restaurantLocations.name,
       city: restaurantLocations.city,
       address: restaurantLocations.address,
       acceptsCards: restaurantLocations.acceptsCards,
+      lat: sql<number>`st_y(${restaurantLocations.geog}::geometry)`,
+      lng: sql<number>`st_x(${restaurantLocations.geog}::geometry)`,
     })
     .from(restaurantLocations)
     .innerJoin(restaurants, eq(restaurants.id, restaurantLocations.restaurantId))
@@ -250,6 +258,13 @@ export async function getPublishedLocationBySlug(
     )
     .limit(1);
   if (!row) return null;
+
+  const cuisineRows = await db
+    .select({name: cuisines.nameSr})
+    .from(restaurantCuisines)
+    .innerJoin(cuisines, eq(cuisines.id, restaurantCuisines.cuisineId))
+    .where(eq(restaurantCuisines.restaurantId, row.restaurantId))
+    .orderBy(cuisines.nameSr);
 
   const hours = await db
     .select({
@@ -289,7 +304,10 @@ export async function getPublishedLocationBySlug(
       address: row.address,
       acceptsCards:
         row.acceptsCards === null ? 'unknown' : row.acceptsCards ? 'yes' : 'no',
+      lat: row.lat,
+      lng: row.lng,
     },
+    cuisines: cuisineRows.map((c) => c.name),
     hours: hours.map((h) => ({
       day: h.day,
       opensAt: h.opensAt.slice(0, 5),
@@ -332,7 +350,7 @@ export type PublicLocationSummary = {
   openNow: boolean;
 };
 
-export type ListParams = {q?: string; city?: City; openNow?: boolean};
+export type ListParams = {q?: string; city?: City; openNow?: boolean; cuisine?: string};
 
 /**
  * Home-page location list, filtered by free-text `q`, `city`, and `openNow`.
@@ -354,7 +372,7 @@ export type ListParams = {q?: string; city?: City; openNow?: boolean};
 export async function listPublishedLocations(
   params: ListParams = {},
 ): Promise<PublicLocationSummary[]> {
-  const {city, openNow} = params;
+  const {city, openNow, cuisine} = params;
   const qnorm = params.q ? normalize(params.q) : '';
 
   // "open right now" as a reusable boolean expression (used in SELECT, and in
@@ -375,6 +393,12 @@ export async function listPublishedLocations(
   const conditions = [sql`l.status = 'published'`];
   if (city) conditions.push(sql`l.city = ${city}`);
   if (openNow) conditions.push(openNowExpr);
+  if (cuisine) {
+    conditions.push(sql`exists (
+      select 1 from restaurant_cuisines rc
+      where rc.restaurant_id = l.restaurant_id and rc.cuisine_id = ${cuisine}
+    )`);
+  }
   if (qnorm) {
     // Each synonym term: words AND-ed; terms OR-ed. Tokens are alphanumeric, so
     // this is a safe to_tsquery input.
@@ -433,7 +457,12 @@ const geog = (d: LocationInput) =>
 
 // Insert the hours + menu that hang off a location. One row per OPEN day (a
 // closed weekday is simply absent — schema requires opens/closes NOT NULL).
-async function insertChildren(tx: Tx, locationId: string, data: LocationInput) {
+async function insertChildren(
+  tx: Tx,
+  locationId: string,
+  restaurantId: string,
+  data: LocationInput,
+) {
   const openRows = data.hours
     .filter((h) => !h.closed)
     .map((h) => ({
@@ -471,6 +500,21 @@ async function insertChildren(tx: Tx, locationId: string, data: LocationInput) {
       .insert(menuItemPrices)
       .values({menuItemId: row.id, amountRsd: item.priceRsd});
   }
+
+  // Derive this restaurant's cuisines from its (just-linked) menu dishes
+  // (blueprint §13 kategorija). Re-derive wholesale — safe while all rows are
+  // derived; when admin-assigned cuisines land, gate this on a `source` flag so
+  // it doesn't clobber manual picks.
+  await tx.delete(restaurantCuisines).where(eq(restaurantCuisines.restaurantId, restaurantId));
+  await tx.execute(sql`
+    insert into restaurant_cuisines (restaurant_id, cuisine_id)
+    select distinct l.restaurant_id, d.cuisine_id
+    from menu_items mi
+    join restaurant_locations l on l.id = mi.location_id
+    join dishes d on d.id = mi.dish_id
+    where d.cuisine_id is not null and l.restaurant_id = ${restaurantId}
+    on conflict (restaurant_id, cuisine_id) do nothing
+  `);
 }
 
 // Append -2, -3, … until the slug is free. Runs inside the txn; low write
