@@ -1,5 +1,25 @@
 {
   "HomePage": {
     "tagline": "Google Maps za hranu — pronađi jelo, ne samo restoran."
+  },
+  "Location": {
+    "openingHours": "Radno vreme",
+    "menu": "Meni",
+    "photos": "Fotografije",
+    "cardsYes": "Prima kartice",
+    "cardsNo": "Samo keš",
+    "cardsUnknown": "Plaćanje karticom: nepoznato",
+    "closed": "Zatvoreno",
+    "priceRsd": "{amount, number} RSD",
+    "noMenu": "Meni još nije unet.",
+    "days": {
+      "0": "Nedelja",
+      "1": "Ponedeljak",
+      "2": "Utorak",
+      "3": "Sreda",
+      "4": "Četvrtak",
+      "5": "Petak",
+      "6": "Subota"
+    }
   }
 }
