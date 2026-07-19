@@ -8,6 +8,11 @@
     "noResults": "Nema rezultata. Probaj drugačiju pretragu.",
     "resultsNone": "Još nema objavljenih lokala."
   },
+  "City": {
+    "heading": "Restorani i lokali u {city}",
+    "intro": "Pregledaj lokale u {city} — meni sa cenama, radno vreme i fotografije.",
+    "backToSearch": "← Pretraga"
+  },
   "Location": {
     "openingHours": "Radno vreme",
     "menu": "Meni",

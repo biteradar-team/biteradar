@@ -295,6 +295,20 @@ export async function getPublishedLocationBySlug(
   };
 }
 
+/**
+ * Slugs of every published location, for the sitemap. Same trust boundary as
+ * the rest of this service: `db` bypasses RLS, so `status = 'published'` is the
+ * gate. `updatedAt` feeds the sitemap's `lastModified`.
+ */
+export async function getPublishedLocationSlugs(): Promise<
+  {slug: string; updatedAt: Date}[]
+> {
+  return db
+    .select({slug: restaurantLocations.slug, updatedAt: restaurantLocations.updatedAt})
+    .from(restaurantLocations)
+    .where(eq(restaurantLocations.status, 'published'));
+}
+
 /** One card on the public home list. */
 export type PublicLocationSummary = {
   slug: string;

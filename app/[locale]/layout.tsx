@@ -4,6 +4,7 @@ import {notFound} from "next/navigation";
 import {hasLocale, NextIntlClientProvider} from "next-intl";
 import {setRequestLocale} from "next-intl/server";
 import {routing} from "@/src/i18n/routing";
+import {siteUrl} from "@/src/lib/site";
 import "../globals.css";
 
 // 'latin-ext' is required for Serbian latin diacritics (đ ć č š ž).
@@ -17,10 +18,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin", "latin-ext"],
 });
 
+const description =
+  "Pretraga restorana i konkretnih jela po lokaciji, ceni, ukusu i radnom vremenu.";
+
 export const metadata: Metadata = {
+  // Makes relative canonical/OG URLs (e.g. per-page og:image) resolve absolute.
+  metadataBase: new URL(siteUrl()),
   title: "BiteRadar",
-  description:
-    "Pretraga restorana i konkretnih jela po lokaciji, ceni, ukusu i radnom vremenu.",
+  description,
+  openGraph: {
+    siteName: "BiteRadar",
+    type: "website",
+    title: "BiteRadar",
+    description,
+  },
 };
 
 // Pre-render both locales at build time (["sr", "en"]) rather than on the

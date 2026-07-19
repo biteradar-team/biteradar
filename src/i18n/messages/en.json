@@ -8,6 +8,11 @@
     "noResults": "No results. Try a different search.",
     "resultsNone": "No locations published yet."
   },
+  "City": {
+    "heading": "Restaurants in {city}",
+    "intro": "Browse places in {city} — menus with prices, opening hours and photos.",
+    "backToSearch": "← Search"
+  },
   "Location": {
     "openingHours": "Opening hours",
     "menu": "Menu",
