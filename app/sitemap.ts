@@ -1,6 +1,7 @@
 import type {MetadataRoute} from 'next';
 import {routing} from '@/src/i18n/routing';
 import {siteUrl} from '@/src/lib/site';
+import {listDishesWithOffers} from '@/src/services/dishes';
 import {getPublishedLocationSlugs} from '@/src/services/locations';
 
 /**
@@ -18,7 +19,10 @@ export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl();
-  const slugs = await getPublishedLocationSlugs();
+  const [slugs, dishes] = await Promise.all([
+    getPublishedLocationSlugs(),
+    listDishesWithOffers(),
+  ]);
 
   const url = (locale: string, path: string) =>
     `${base}${locale === routing.defaultLocale ? '' : `/${locale}`}${path}`;
@@ -27,6 +31,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {path: ''},
     {path: '/grad/ns'},
     {path: '/grad/bg'},
+    {path: '/jela'},
+    ...dishes.map((d) => ({path: `/jelo/${d.slug}`})),
     ...slugs.map((s) => ({path: `/lokal/${s.slug}`, lastModified: s.updatedAt})),
   ];
 

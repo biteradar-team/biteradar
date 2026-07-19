@@ -50,15 +50,25 @@ async function main() {
     const [pubItem] = await tx`
       insert into menu_items (location_id, name, normalized_text)
       values (${pub.id}, 'Ćevapi', ${normalize('Ćevapi')}) returning id`;
-    await tx`
+    const [draftItem] = await tx`
       insert into menu_items (location_id, name, normalized_text)
-      values (${draft.id}, 'Ćevapi', ${normalize('Ćevapi')})`;
+      values (${draft.id}, 'Ćevapi', ${normalize('Ćevapi')}) returning id`;
 
     // A world-readable dish, stored from the Latin form.
     const [dish] = await tx`
       insert into dishes (slug, name_sr, normalized_text)
       values ('search-smoke-karadjordjeva', 'Karađorđeva', ${normalize('Karađorđeva')})
       returning id`;
+
+    // Link both items to a canonical dish + price them, for the offers test.
+    const [offersDish] = await tx`
+      insert into dishes (slug, name_sr, normalized_text)
+      values ('search-smoke-offer', 'Ćevapi porcija', ${normalize('Ćevapi porcija')})
+      returning id`;
+    await tx`update menu_items set dish_id = ${offersDish.id}
+             where id in ${tx([pubItem.id, draftItem.id])}`;
+    await tx`insert into menu_item_prices (menu_item_id, amount_rsd) values (${pubItem.id}, 550)`;
+    await tx`insert into menu_item_prices (menu_item_id, amount_rsd) values (${draftItem.id}, 500)`;
 
     // --- Become the public anon role ---
     await tx`set local role anon`;
@@ -136,6 +146,28 @@ async function main() {
     for (const c of openCases) {
       assert.equal(c.got, c.expected, `open-now case "${c.label}" expected ${c.expected}`);
     }
+
+    // 6. Dish offers — mirrors listDishOffers(): dish_id join + explicit
+    // status='published'. The draft's identically-linked item (even at a lower
+    // price) must NOT surface; the published one does, with its price.
+    const offerRows = await tx`
+      select l.slug,
+        (select amount_rsd from menu_item_prices p where p.menu_item_id = mi.id
+         order by valid_from desc limit 1) as price
+      from menu_items mi
+      join restaurant_locations l on l.id = mi.location_id
+      where mi.dish_id = ${offersDish.id} and l.status = 'published'
+      order by price asc nulls last`;
+    assert.deepEqual(
+      offerRows.map((r) => r.slug),
+      ['search-smoke-pub'],
+      'dish offers must include the published location only (draft hidden)',
+    );
+    assert.equal(
+      Number(offerRows[0].price),
+      550,
+      'offer price must be the published item price, not the cheaper draft',
+    );
 
     throw new Rollback();
   });
