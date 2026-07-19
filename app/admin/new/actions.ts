@@ -25,13 +25,15 @@ export async function createLocationAction(
 ): Promise<FormState> {
   await requireAdmin();
 
+  let locationId: string;
   try {
-    await createLocation(payload);
+    ({locationId} = await createLocation(payload));
   } catch (err) {
     return toFormError(err);
   }
-  // redirect() throws NEXT_REDIRECT — must live outside the try/catch.
-  redirect('/admin');
+  // redirect() throws NEXT_REDIRECT — must live outside the try/catch. Land on
+  // the edit page so photos can be added right away (the create form has none).
+  redirect(`/admin/${locationId}/edit`);
 }
 
 export async function updateLocationAction(
