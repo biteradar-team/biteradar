@@ -38,13 +38,22 @@ export async function addLocationPhotos(
     return {added: 0, errors: [`Najviše ${MAX_PER_UPLOAD} fotografija odjednom.`]};
   }
 
-  const admin = createAdminClient();
-  // Append after any existing photos.
-  const existing = await db
-    .select({id: photos.id})
-    .from(photos)
-    .where(eq(photos.locationId, locationId));
-  let sortOrder = existing.length;
+  // Infra setup (env-driven client + a pre-count query) can throw before the
+  // per-file loop — return a friendly error instead of an uncaught 500.
+  let admin: ReturnType<typeof createAdminClient>;
+  let sortOrder: number;
+  try {
+    admin = createAdminClient();
+    // Append after any existing photos.
+    const existing = await db
+      .select({id: photos.id})
+      .from(photos)
+      .where(eq(photos.locationId, locationId));
+    sortOrder = existing.length;
+  } catch (err) {
+    console.error('photo upload setup failed:', err);
+    return {added: 0, errors: ['Otpremanje trenutno nije dostupno. Pokušajte ponovo.']};
+  }
   let added = 0;
 
   for (const file of valid) {
