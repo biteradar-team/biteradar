@@ -14,9 +14,17 @@ export async function generateMetadata({params}: Params): Promise<Metadata> {
   const loc = await getPublishedLocationBySlug(slug);
   if (!loc) return {title: 'BiteRadar'};
   const city = CITY[loc.location.city];
+  const title = `${loc.brand.name} — ${city} | BiteRadar`;
+  const description = `${loc.brand.name}, ${loc.location.address}, ${city}. Radno vreme, meni sa cenama i fotografije na BiteRadaru.`;
   return {
-    title: `${loc.brand.name} — ${city} | BiteRadar`,
-    description: `${loc.brand.name}, ${loc.location.address}, ${city}. Radno vreme, meni sa cenama i fotografije na BiteRadaru.`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      images: loc.photos.length ? [loc.photos[0].url] : undefined,
+    },
   };
 }
 
