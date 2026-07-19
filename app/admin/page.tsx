@@ -1,5 +1,9 @@
 import type {Metadata} from "next";
+import Link from "next/link";
+import {desc, eq} from "drizzle-orm";
 import {redirect} from "next/navigation";
+import {db} from "@/src/db";
+import {restaurantLocations, restaurants} from "@/src/db/schema";
 import {requireAdmin} from "@/src/lib/auth";
 import {createClient} from "@/src/lib/supabase/server";
 
@@ -12,11 +16,27 @@ async function logout() {
   redirect("/admin/login");
 }
 
+const CITY = {ns: "Novi Sad", bg: "Beograd"} as const;
+
 export default async function AdminDashboard() {
   const {email} = await requireAdmin();
 
+  // db bypasses RLS, so this lists drafts too (unlike the public site).
+  const locations = await db
+    .select({
+      brand: restaurants.name,
+      label: restaurantLocations.name,
+      city: restaurantLocations.city,
+      status: restaurantLocations.status,
+      createdAt: restaurantLocations.createdAt,
+    })
+    .from(restaurantLocations)
+    .innerJoin(restaurants, eq(restaurants.id, restaurantLocations.restaurantId))
+    .orderBy(desc(restaurantLocations.createdAt))
+    .limit(100);
+
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-8">
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-black dark:text-zinc-50">
           BiteRadar Admin
@@ -31,14 +51,61 @@ export default async function AdminDashboard() {
         </form>
       </div>
 
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        Prijavljen kao{" "}
-        <span className="font-medium text-black dark:text-zinc-200">{email}</span>.
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Prijavljen kao{" "}
+          <span className="font-medium text-black dark:text-zinc-200">{email}</span>.
+        </p>
+        <Link
+          href="/admin/new"
+          className="rounded bg-black px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300"
+        >
+          + Novi lokal
+        </Link>
+      </div>
 
-      <p className="text-sm text-zinc-500 dark:text-zinc-500">
-        Alat za unos lokala stiže u sledećem koraku.
-      </p>
+      {locations.length === 0 ? (
+        <p className="text-sm text-zinc-500">Još nema unetih lokala.</p>
+      ) : (
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500 dark:border-zinc-800">
+            <tr>
+              <th className="py-2 font-medium">Naziv</th>
+              <th className="py-2 font-medium">Grad</th>
+              <th className="py-2 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {locations.map((l, i) => (
+              <tr
+                key={i}
+                className="border-b border-zinc-100 dark:border-zinc-900"
+              >
+                <td className="py-2 text-black dark:text-zinc-100">
+                  {l.brand}
+                  {l.label ? (
+                    <span className="text-zinc-500"> · {l.label}</span>
+                  ) : null}
+                </td>
+                <td className="py-2 text-zinc-600 dark:text-zinc-400">
+                  {CITY[l.city]}
+                </td>
+                <td className="py-2">
+                  <span
+                    className={
+                      l.status === "published"
+                        ? "text-green-700 dark:text-green-400"
+                        : "text-zinc-500"
+                    }
+                  >
+                    {l.status === "published" ? "Objavljeno" : "Nacrt"}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </main>
   );
 }
