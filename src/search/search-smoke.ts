@@ -92,6 +92,51 @@ async function main() {
         and id = ${dish.id}`;
     assert.equal(dishHits.length, 1, 'cross-script dish FTS must match');
 
+    // 4. to_tsquery OR form: listPublishedLocations() OR-s synonym terms into a
+    // single to_tsquery (built only from normalized alnum tokens). Prove it
+    // matches, still gated by RLS (draft hidden).
+    const orHits = await tx`
+      select id from menu_items
+      where search_vector @@ to_tsquery('simple', ${'nepostojece | cevapi'})
+        and location_id in ${tx([pub.id, draft.id])}`;
+    assert.deepEqual(
+      orHits.map((r) => r.id),
+      [pubItem.id],
+      'anon to_tsquery OR form must match the published item only',
+    );
+
+    // 5. "otvoreno sada" predicate — mirror of the open-now expression in
+    // listPublishedLocations(), evaluated against fixed reference timestamps so
+    // it's deterministic (blueprint §16 past-midnight handling). `offset_days`
+    // places the opening_hours row on the ref's day (0) or the previous day (-1),
+    // so the cases hold whatever weekday the literal dates fall on.
+    const openCases = await tx`
+      with cases (label, ref, offset_days, opens_at, closes_at, expected) as (values
+        ('same-day open',  timestamp '2026-07-15 14:30',  0, time '08:00', time '23:00', true),
+        ('before opening', timestamp '2026-07-15 07:00',  0, time '08:00', time '23:00', false),
+        ('past-midnight',  timestamp '2026-07-16 00:30', -1, time '22:00', time '02:00', true),
+        ('pre-midnight',   timestamp '2026-07-15 23:30',  0, time '22:00', time '02:00', true),
+        ('after close',    timestamp '2026-07-16 03:00', -1, time '22:00', time '02:00', false)
+      ),
+      rows as (
+        select label, ref, opens_at, closes_at, expected,
+          ((extract(dow from ref)::int + offset_days) % 7 + 7) % 7 as dow
+        from cases
+      )
+      select label, expected, (
+        (closes_at > opens_at
+          and dow = extract(dow from ref)::int
+          and ref::time >= opens_at and ref::time < closes_at)
+        or (closes_at <= opens_at and (
+          (dow = extract(dow from ref)::int and ref::time >= opens_at)
+          or (dow = (extract(dow from ref)::int + 6) % 7 and ref::time < closes_at)
+        ))
+      ) as got
+      from rows`;
+    for (const c of openCases) {
+      assert.equal(c.got, c.expected, `open-now case "${c.label}" expected ${c.expected}`);
+    }
+
     throw new Rollback();
   });
 }
