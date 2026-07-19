@@ -27,6 +27,7 @@ export default async function AdminDashboard() {
     .select({
       id: restaurantLocations.id,
       restaurantId: restaurantLocations.restaurantId,
+      slug: restaurantLocations.slug,
       brand: restaurants.name,
       label: restaurantLocations.name,
       city: restaurantLocations.city,
@@ -107,6 +108,16 @@ export default async function AdminDashboard() {
                 </td>
                 <td className="py-2">
                   <div className="flex items-center justify-end gap-4">
+                    {l.status === "published" ? (
+                      <Link
+                        href={`/lokal/${l.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-zinc-600 hover:underline dark:text-zinc-400"
+                      >
+                        Vidi stranicu
+                      </Link>
+                    ) : null}
                     <Link
                       href={`/admin/${l.id}/edit`}
                       className="text-sm text-zinc-600 hover:underline dark:text-zinc-400"

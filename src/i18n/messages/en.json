@@ -1,5 +1,25 @@
 {
   "HomePage": {
     "tagline": "Google Maps for food — find the dish, not just the restaurant."
+  },
+  "Location": {
+    "openingHours": "Opening hours",
+    "menu": "Menu",
+    "photos": "Photos",
+    "cardsYes": "Cards accepted",
+    "cardsNo": "Cash only",
+    "cardsUnknown": "Card payment: unknown",
+    "closed": "Closed",
+    "priceRsd": "{amount, number} RSD",
+    "noMenu": "Menu not entered yet.",
+    "days": {
+      "0": "Sunday",
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday"
+    }
   }
 }

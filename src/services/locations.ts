@@ -1,5 +1,5 @@
 import 'server-only';
-import {eq, sql} from 'drizzle-orm';
+import {and, eq, sql} from 'drizzle-orm';
 import {db} from '@/src/db';
 import {
   menuItemPrices,
@@ -9,6 +9,7 @@ import {
   restaurants,
 } from '@/src/db/schema';
 import {normalize} from '@/src/search/normalize';
+import {type LocationPhoto, listLocationPhotos} from './photos';
 import {
   type LocationEditData,
   type LocationInput,
@@ -192,6 +193,104 @@ export async function getLocationForEdit(
       description: m.description ?? '',
       priceRsd: String(m.priceRsd ?? ''),
     })),
+  };
+}
+
+/** Display-ready shape for the public location profile page. */
+export type PublicLocation = {
+  slug: string;
+  brand: {name: string; description: string};
+  location: {
+    label: string;
+    city: 'ns' | 'bg';
+    address: string;
+    acceptsCards: 'yes' | 'no' | 'unknown';
+  };
+  hours: {day: number; opensAt: string; closesAt: string}[]; // open days only
+  menu: {sectionName: string; name: string; description: string; priceRsd: number}[];
+  photos: LocationPhoto[];
+};
+
+/**
+ * Loads one PUBLISHED location for the public profile page, or null.
+ *
+ * TRUST BOUNDARY: `db` bypasses RLS, so the `status = 'published'` predicate
+ * below is what keeps drafts off the public site — never drop it. RLS is only
+ * the backstop for direct anon-API access, not for this owner-role query.
+ */
+export async function getPublishedLocationBySlug(
+  slug: string,
+): Promise<PublicLocation | null> {
+  const [row] = await db
+    .select({
+      id: restaurantLocations.id,
+      brandName: restaurants.name,
+      description: restaurants.description,
+      label: restaurantLocations.name,
+      city: restaurantLocations.city,
+      address: restaurantLocations.address,
+      acceptsCards: restaurantLocations.acceptsCards,
+    })
+    .from(restaurantLocations)
+    .innerJoin(restaurants, eq(restaurants.id, restaurantLocations.restaurantId))
+    .where(
+      and(
+        eq(restaurantLocations.slug, slug),
+        eq(restaurantLocations.status, 'published'),
+      ),
+    )
+    .limit(1);
+  if (!row) return null;
+
+  const hours = await db
+    .select({
+      day: openingHours.dayOfWeek,
+      opensAt: openingHours.opensAt,
+      closesAt: openingHours.closesAt,
+    })
+    .from(openingHours)
+    .where(eq(openingHours.locationId, row.id))
+    .orderBy(openingHours.dayOfWeek);
+
+  const menu = await db
+    .select({
+      name: menuItems.name,
+      sectionName: menuItems.sectionName,
+      description: menuItems.description,
+      priceRsd: sql<number>`(
+        select amount_rsd from menu_item_prices p
+        where p.menu_item_id = ${menuItems.id}
+        order by valid_from desc limit 1
+      )`,
+    })
+    .from(menuItems)
+    .where(eq(menuItems.locationId, row.id))
+    .orderBy(menuItems.sortOrder);
+
+  const photos = await listLocationPhotos(row.id);
+
+  return {
+    slug,
+    brand: {name: row.brandName, description: row.description ?? ''},
+    location: {
+      label: row.label ?? '',
+      city: row.city,
+      address: row.address,
+      acceptsCards:
+        row.acceptsCards === null ? 'unknown' : row.acceptsCards ? 'yes' : 'no',
+    },
+    hours: hours.map((h) => ({
+      day: h.day,
+      opensAt: h.opensAt.slice(0, 5),
+      closesAt: h.closesAt.slice(0, 5),
+    })),
+    menu: menu.map((m) => ({
+      sectionName: m.sectionName ?? '',
+      name: m.name,
+      description: m.description ?? '',
+      priceRsd: Number(m.priceRsd ?? 0),
+    })),
+    photos,
   };
 }
 
