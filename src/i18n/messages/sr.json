@@ -1,6 +1,12 @@
 {
-  "HomePage": {
-    "tagline": "Google Maps za hranu — pronađi jelo, ne samo restoran."
+  "Home": {
+    "tagline": "Google Maps za hranu — pronađi jelo, ne samo restoran.",
+    "searchPlaceholder": "Pretraži jela i restorane…",
+    "search": "Pretraži",
+    "allCities": "Svi gradovi",
+    "openNow": "Otvoreno sada",
+    "noResults": "Nema rezultata. Probaj drugačiju pretragu.",
+    "resultsNone": "Još nema objavljenih lokala."
   },
   "Location": {
     "openingHours": "Radno vreme",

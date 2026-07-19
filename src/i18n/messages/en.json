@@ -1,6 +1,12 @@
 {
-  "HomePage": {
-    "tagline": "Google Maps for food — find the dish, not just the restaurant."
+  "Home": {
+    "tagline": "Google Maps for food — find the dish, not just the restaurant.",
+    "searchPlaceholder": "Search dishes and restaurants…",
+    "search": "Search",
+    "allCities": "All cities",
+    "openNow": "Open now",
+    "noResults": "No results. Try a different search.",
+    "resultsNone": "No locations published yet."
   },
   "Location": {
     "openingHours": "Opening hours",

@@ -8,8 +8,9 @@ import {
   restaurantLocations,
   restaurants,
 } from '@/src/db/schema';
-import {normalize} from '@/src/search/normalize';
-import {type LocationPhoto, listLocationPhotos} from './photos';
+import {type City} from '@/src/lib/cities';
+import {expandSynonyms, normalize} from '@/src/search/normalize';
+import {type LocationPhoto, listLocationPhotos, photoPublicUrl} from './photos';
 import {
   type LocationEditData,
   type LocationInput,
@@ -292,6 +293,109 @@ export async function getPublishedLocationBySlug(
     })),
     photos,
   };
+}
+
+/** One card on the public home list. */
+export type PublicLocationSummary = {
+  slug: string;
+  brandName: string;
+  label: string | null;
+  city: City;
+  address: string;
+  acceptsCards: 'yes' | 'no' | 'unknown';
+  photoUrl: string | null;
+  openNow: boolean;
+};
+
+export type ListParams = {q?: string; city?: City; openNow?: boolean};
+
+/**
+ * Home-page location list, filtered by free-text `q`, `city`, and `openNow`.
+ *
+ * TRUST BOUNDARY: `db` bypasses RLS, so `status = 'published'` is hard-wired
+ * into the WHERE and must never be dropped.
+ *
+ * `q` (blueprint §8): normalize the query the same way stored text was, then
+ * match a location if its brand OR any of its menu items hits — via FTS
+ * (`search_vector @@ to_tsquery`) with a pg_trgm `similarity() > 0.3` fallback
+ * for typos. Synonyms (`expandSynonyms`) are OR-ed into the tsquery. The query
+ * string fed to `to_tsquery` is built only from normalized tokens (letters/
+ * digits/spaces), so the `&`/`|` operators we add are the only operators.
+ *
+ * `openNow`: computed against `now()` in Europe/Belgrade, handling past-midnight
+ * spans (a row whose `closes_at <= opens_at` belongs to the previous weekday
+ * after midnight). Open locations sort first regardless of the filter.
+ */
+export async function listPublishedLocations(
+  params: ListParams = {},
+): Promise<PublicLocationSummary[]> {
+  const {city, openNow} = params;
+  const qnorm = params.q ? normalize(params.q) : '';
+
+  // "open right now" as a reusable boolean expression (used in SELECT, and in
+  // WHERE when the filter is on). `n.ts` is the Belgrade-local now() from the CTE.
+  const openNowExpr = sql`exists (
+    select 1 from opening_hours oh
+    where oh.location_id = l.id and (
+      (oh.closes_at > oh.opens_at
+        and oh.day_of_week = extract(dow from n.ts)::int
+        and n.ts::time >= oh.opens_at and n.ts::time < oh.closes_at)
+      or (oh.closes_at <= oh.opens_at and (
+        (oh.day_of_week = extract(dow from n.ts)::int and n.ts::time >= oh.opens_at)
+        or (oh.day_of_week = (extract(dow from n.ts)::int + 6) % 7 and n.ts::time < oh.closes_at)
+      ))
+    )
+  )`;
+
+  const conditions = [sql`l.status = 'published'`];
+  if (city) conditions.push(sql`l.city = ${city}`);
+  if (openNow) conditions.push(openNowExpr);
+  if (qnorm) {
+    // Each synonym term: words AND-ed; terms OR-ed. Tokens are alphanumeric, so
+    // this is a safe to_tsquery input.
+    const tsq = expandSynonyms(qnorm)
+      .map((term) => term.split(/\s+/).filter(Boolean).join(' & '))
+      .filter(Boolean)
+      .join(' | ');
+    conditions.push(sql`(
+      r.search_vector @@ to_tsquery('simple', ${tsq})
+      or similarity(r.normalized_text, ${qnorm}) > 0.3
+      or exists (
+        select 1 from menu_items mi
+        where mi.location_id = l.id and (
+          mi.search_vector @@ to_tsquery('simple', ${tsq})
+          or similarity(mi.normalized_text, ${qnorm}) > 0.3
+        )
+      )
+    )`);
+  }
+
+  const rows = await db.execute(sql`
+    with n as (select (now() at time zone 'Europe/Belgrade') as ts)
+    select
+      l.slug, r.name as brand_name, l.name as label, l.city, l.address,
+      l.accepts_cards,
+      (select p.object_key from photos p
+        where p.location_id = l.id order by p.sort_order limit 1) as photo_key,
+      ${openNowExpr} as open_now
+    from n, restaurant_locations l
+    join restaurants r on r.id = l.restaurant_id
+    where ${sql.join(conditions, sql` and `)}
+    order by open_now desc, r.name
+    limit 100
+  `);
+
+  return rows.map((r) => ({
+    slug: r.slug as string,
+    brandName: r.brand_name as string,
+    label: (r.label as string | null) ?? null,
+    city: r.city as City,
+    address: r.address as string,
+    acceptsCards:
+      r.accepts_cards === null ? 'unknown' : r.accepts_cards ? 'yes' : 'no',
+    photoUrl: r.photo_key ? photoPublicUrl(r.photo_key as string) : null,
+    openNow: Boolean(r.open_now),
+  }));
 }
 
 // --- shared helpers ---------------------------------------------------------

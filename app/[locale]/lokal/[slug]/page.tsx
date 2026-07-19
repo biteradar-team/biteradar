@@ -1,9 +1,9 @@
 import type {Metadata} from 'next';
 import {notFound} from 'next/navigation';
 import {getTranslations, setRequestLocale} from 'next-intl/server';
+import {CITY_NAMES as CITY} from '@/src/lib/cities';
 import {getPublishedLocationBySlug} from '@/src/services/locations';
 
-const CITY = {ns: 'Novi Sad', bg: 'Beograd'} as const;
 // Weekday display order (Monday first); DB uses 0 = Sunday.
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
 

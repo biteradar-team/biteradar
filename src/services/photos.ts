@@ -27,6 +27,12 @@ const MAX_BYTES = 15 * 1024 * 1024; // 15 MB pre-processing
 
 export type LocationPhoto = {id: string; url: string; altText: string | null};
 
+/** Public URL for a stored object key (bucket is public — blueprint §204). */
+export function photoPublicUrl(objectKey: string): string {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  return `${base}/storage/v1/object/public/${BUCKET}/${objectKey}`;
+}
+
 export async function addLocationPhotos(
   locationId: string,
   files: File[],
@@ -101,10 +107,9 @@ export async function listLocationPhotos(
     .where(eq(photos.locationId, locationId))
     .orderBy(photos.sortOrder);
 
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
   return rows.map((r) => ({
     id: r.id,
     altText: r.altText,
-    url: `${base}/storage/v1/object/public/${BUCKET}/${r.objectKey}`,
+    url: photoPublicUrl(r.objectKey),
   }));
 }

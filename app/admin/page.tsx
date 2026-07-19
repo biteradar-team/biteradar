@@ -4,6 +4,7 @@ import {desc, eq} from "drizzle-orm";
 import {redirect} from "next/navigation";
 import {db} from "@/src/db";
 import {restaurantLocations, restaurants} from "@/src/db/schema";
+import {CITY_NAMES as CITY} from "@/src/lib/cities";
 import {requireAdmin} from "@/src/lib/auth";
 import {createClient} from "@/src/lib/supabase/server";
 import DeleteButton from "./delete-button";
@@ -16,8 +17,6 @@ async function logout() {
   await supabase.auth.signOut();
   redirect("/admin/login");
 }
-
-const CITY = {ns: "Novi Sad", bg: "Beograd"} as const;
 
 export default async function AdminDashboard() {
   const {email} = await requireAdmin();
