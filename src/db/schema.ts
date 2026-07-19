@@ -259,6 +259,10 @@ export const dishes = pgTable(
     slug: text().notNull().unique(),
     nameSr: text().notNull(),
     nameEn: text(),
+    // A canonical dish belongs to one cuisine/category (blueprint §13 kategorija
+    // landing pages). Nullable + set null on delete; the source we derive a
+    // location's restaurant_cuisines from.
+    cuisineId: uuid().references(() => cuisines.id, {onDelete: 'set null'}),
     descriptionSr: text(),
     descriptionEn: text(),
     ...searchColumns,

@@ -1,6 +1,8 @@
 import {getTranslations, setRequestLocale} from 'next-intl/server';
+import JsonLd from '@/src/components/json-ld';
 import LocationCard from '@/src/components/location-card';
 import {CITY_NAMES, parseCity} from '@/src/lib/cities';
+import {listingJsonLd} from '@/src/lib/jsonld';
 import {listPublishedLocations} from '@/src/services/locations';
 
 // Reading searchParams makes this route dynamic (server-rendered per request),
@@ -32,6 +34,7 @@ export default async function Home({params, searchParams}: Props) {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10 text-black dark:text-zinc-100">
+      {results.length ? <JsonLd data={listingJsonLd('BiteRadar', results, locale)} /> : null}
       <h1 className="max-w-2xl text-2xl font-semibold tracking-tight">
         {t('tagline')}
       </h1>

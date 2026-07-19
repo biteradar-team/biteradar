@@ -70,6 +70,21 @@ async function main() {
     await tx`insert into menu_item_prices (menu_item_id, amount_rsd) values (${pubItem.id}, 550)`;
     await tx`insert into menu_item_prices (menu_item_id, amount_rsd) values (${draftItem.id}, 500)`;
 
+    // Tag the dish with a cuisine + derive restaurant_cuisines (the same shape
+    // insertChildren uses on write) — for the kategorija filter test.
+    const [cuisine] = await tx`
+      insert into cuisines (slug, name_sr, name_en)
+      values ('search-smoke-cuisine', 'Roštilj test', 'Grill test') returning id`;
+    await tx`update dishes set cuisine_id = ${cuisine.id} where id = ${offersDish.id}`;
+    await tx`
+      insert into restaurant_cuisines (restaurant_id, cuisine_id)
+      select distinct l.restaurant_id, d.cuisine_id
+      from menu_items mi
+      join restaurant_locations l on l.id = mi.location_id
+      join dishes d on d.id = mi.dish_id
+      where d.cuisine_id is not null and l.restaurant_id = ${brand.id}
+      on conflict do nothing`;
+
     // --- Become the public anon role ---
     await tx`set local role anon`;
 
@@ -168,6 +183,27 @@ async function main() {
       550,
       'offer price must be the published item price, not the cheaper draft',
     );
+
+    // 7. Cuisine (kategorija) filter — mirrors listPublishedLocations({cuisine}):
+    // published locations whose restaurant has the cuisine. Draft stays hidden;
+    // an unrelated cuisine matches nothing.
+    const cuisineHits = await tx`
+      select l.slug from restaurant_locations l
+      where l.status = 'published'
+        and exists (select 1 from restaurant_cuisines rc
+                    where rc.restaurant_id = l.restaurant_id and rc.cuisine_id = ${cuisine.id})
+        and l.id in ${tx([pub.id, draft.id])}`;
+    assert.deepEqual(
+      cuisineHits.map((r) => r.slug),
+      ['search-smoke-pub'],
+      'cuisine filter returns the published location only',
+    );
+    const noHits = await tx`
+      select 1 from restaurant_locations l
+      where l.status = 'published'
+        and exists (select 1 from restaurant_cuisines rc
+                    where rc.restaurant_id = l.restaurant_id and rc.cuisine_id = gen_random_uuid())`;
+    assert.equal(noHits.length, 0, 'a cuisine with no links matches nothing');
 
     throw new Rollback();
   });

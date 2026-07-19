@@ -23,6 +23,15 @@
     "noOffers": "Nijedan lokal još nema {dish} u meniju.",
     "backToDishes": "← Sva jela"
   },
+  "Cuisines": {
+    "heading": "Kategorije",
+    "intro": "Izaberi kategoriju hrane i pronađi lokale.",
+    "empty": "Još nema kategorija sa lokalima."
+  },
+  "Cuisine": {
+    "intro": "Lokali sa kategorijom „{cuisine}“.",
+    "backToCuisines": "← Sve kategorije"
+  },
   "Location": {
     "openingHours": "Radno vreme",
     "menu": "Meni",

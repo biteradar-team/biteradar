@@ -1,8 +1,10 @@
 import type {Metadata} from 'next';
 import {notFound} from 'next/navigation';
 import {getTranslations, setRequestLocale} from 'next-intl/server';
+import JsonLd from '@/src/components/json-ld';
 import {Link} from '@/src/i18n/navigation';
 import {CITY_NAMES, parseCity} from '@/src/lib/cities';
+import {dishOffersJsonLd} from '@/src/lib/jsonld';
 import {getDishBySlug, listDishOffers} from '@/src/services/dishes';
 
 type Props = {
@@ -40,6 +42,9 @@ export default async function DishPage({params, searchParams}: Props) {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10 text-black dark:text-zinc-100">
+      {offers.length ? (
+        <JsonLd data={dishOffersJsonLd(dish.nameSr, offers, locale)} />
+      ) : null}
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">{dish.nameSr}</h1>
         {locale === 'en' && dish.nameEn ? (
