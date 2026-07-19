@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import Link from 'next/link';
 import {requireAdmin} from '@/src/lib/auth';
+import {createLocationAction} from './actions';
 import LocationForm from './location-form';
 
 export const metadata: Metadata = {title: 'Novi lokal — BiteRadar Admin'};
@@ -21,7 +22,7 @@ export default async function NewLocationPage() {
           ← Nazad
         </Link>
       </div>
-      <LocationForm />
+      <LocationForm action={createLocationAction} />
     </main>
   );
 }

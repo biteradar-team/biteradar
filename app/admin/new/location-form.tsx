@@ -1,7 +1,11 @@
 'use client';
 import Link from 'next/link';
 import {useActionState, useState} from 'react';
-import {createLocationAction, type FormState} from './actions';
+import {type LocationEditData} from '@/src/services/location-input';
+import {type FormState} from './actions';
+import MapPicker, {type Coords} from './map-picker';
+
+type Action = (prev: FormState, payload: unknown) => Promise<FormState>;
 
 // 0 = Sunday … 6 = Saturday, matching schema.opening_hours.day_of_week.
 const DAYS = [
@@ -26,28 +30,52 @@ const input =
   'w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm text-black dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100';
 const label = 'text-xs font-medium text-zinc-600 dark:text-zinc-400';
 
-export default function LocationForm() {
+export default function LocationForm({
+  action,
+  initial,
+  submitLabel = 'Sačuvaj lokal',
+}: {
+  action: Action;
+  initial?: LocationEditData;
+  submitLabel?: string;
+}) {
   const [state, formAction, pending] = useActionState<FormState, unknown>(
-    createLocationAction,
+    action,
     {},
   );
 
-  const [brandName, setBrandName] = useState('');
-  const [description, setDescription] = useState('');
-  const [locLabel, setLocLabel] = useState('');
-  const [city, setCity] = useState('ns');
-  const [address, setAddress] = useState('');
-  const [lat, setLat] = useState('');
-  const [lng, setLng] = useState('');
-  const [acceptsCards, setAcceptsCards] = useState('unknown');
-  const [status, setStatus] = useState('draft');
-
-  const [hours, setHours] = useState<HourRow[]>(
-    DAYS.map(() => ({closed: true, opensAt: '', closesAt: ''})),
+  const [brandName, setBrandName] = useState(initial?.brand.name ?? '');
+  const [description, setDescription] = useState(
+    initial?.brand.description ?? '',
   );
-  const [menu, setMenu] = useState<MenuRow[]>([
-    {name: '', sectionName: '', description: '', priceRsd: ''},
-  ]);
+  const [locLabel, setLocLabel] = useState(initial?.location.label ?? '');
+  const [city, setCity] = useState<'ns' | 'bg'>(initial?.location.city ?? 'ns');
+  const [address, setAddress] = useState(initial?.location.address ?? '');
+  const [coords, setCoords] = useState<Coords | null>(
+    initial ? {lat: initial.location.lat, lng: initial.location.lng} : null,
+  );
+  const [acceptsCards, setAcceptsCards] = useState<string>(
+    initial?.location.acceptsCards ?? 'unknown',
+  );
+  const [status, setStatus] = useState<string>(
+    initial?.location.status ?? 'draft',
+  );
+
+  // 7 rows keyed by weekday; edit fills open days, the rest default to closed.
+  const [hours, setHours] = useState<HourRow[]>(() => {
+    const open = new Map((initial?.hours ?? []).map((h) => [h.day, h]));
+    return DAYS.map((_, day) => {
+      const h = open.get(day);
+      return h
+        ? {closed: false, opensAt: h.opensAt, closesAt: h.closesAt}
+        : {closed: true, opensAt: '', closesAt: ''};
+    });
+  });
+  const [menu, setMenu] = useState<MenuRow[]>(
+    initial && initial.menu.length
+      ? initial.menu.map((m) => ({...m}))
+      : [{name: '', sectionName: '', description: '', priceRsd: ''}],
+  );
 
   function setHour(i: number, patch: Partial<HourRow>) {
     setHours((rows) => rows.map((r, j) => (j === i ? {...r, ...patch} : r)));
@@ -59,7 +87,15 @@ export default function LocationForm() {
   function submit() {
     formAction({
       brand: {name: brandName, description},
-      location: {label: locLabel, city, address, lat, lng, acceptsCards, status},
+      location: {
+        label: locLabel,
+        city,
+        address,
+        lat: coords?.lat,
+        lng: coords?.lng,
+        acceptsCards,
+        status,
+      },
       hours: hours.map((h, day) => ({day, ...h})),
       menu,
     });
@@ -111,36 +147,16 @@ export default function LocationForm() {
             required
           />
         </Field>
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Grad">
             <select
               className={input}
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => setCity(e.target.value as 'ns' | 'bg')}
             >
               <option value="ns">Novi Sad</option>
               <option value="bg">Beograd</option>
             </select>
-          </Field>
-          <Field label="Lat *">
-            <input
-              className={input}
-              type="number"
-              step="any"
-              value={lat}
-              onChange={(e) => setLat(e.target.value)}
-              required
-            />
-          </Field>
-          <Field label="Lng *">
-            <input
-              className={input}
-              type="number"
-              step="any"
-              value={lng}
-              onChange={(e) => setLng(e.target.value)}
-              required
-            />
           </Field>
           <Field label="Prima kartice">
             <select
@@ -153,17 +169,18 @@ export default function LocationForm() {
               <option value="no">Ne</option>
             </select>
           </Field>
+          <Field label="Status">
+            <select
+              className={input}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="draft">Nacrt (skriveno)</option>
+              <option value="published">Objavljeno (vidljivo)</option>
+            </select>
+          </Field>
         </div>
-        <Field label="Status">
-          <select
-            className={`${input} sm:w-48`}
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="draft">Nacrt (skriveno)</option>
-            <option value="published">Objavljeno (vidljivo)</option>
-          </select>
-        </Field>
+        <MapPicker value={coords} onChange={setCoords} city={city} />
       </section>
 
       {/* Hours */}
@@ -279,7 +296,7 @@ export default function LocationForm() {
           disabled={pending}
           className="rounded bg-black px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300"
         >
-          {pending ? 'Čuvanje…' : 'Sačuvaj lokal'}
+          {pending ? 'Čuvanje…' : submitLabel}
         </button>
         <Link
           href="/admin"
