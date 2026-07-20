@@ -1,7 +1,11 @@
 import type {Metadata} from 'next';
 import {notFound} from 'next/navigation';
 import {getTranslations, setRequestLocale} from 'next-intl/server';
+import CityChips, {NoJsSubmit} from '@/src/components/filter-fields';
+import Filters from '@/src/components/filters';
 import JsonLd from '@/src/components/json-ld';
+import Pill from '@/src/components/pill';
+import {EmptyState, PageHeader, PageShell} from '@/src/components/shell';
 import {Link} from '@/src/i18n/navigation';
 import {CITY_NAMES, parseCity} from '@/src/lib/cities';
 import {dishOffersJsonLd} from '@/src/lib/jsonld';
@@ -34,81 +38,104 @@ export default async function DishPage({params, searchParams}: Props) {
   const city = parseCity((await searchParams).city);
   const offers = await listDishOffers({dishId: dish.id, city});
 
-  const cityOptions: {value: string; label: string}[] = [
-    {value: '', label: th('allCities')},
-    {value: 'ns', label: CITY_NAMES.ns},
-    {value: 'bg', label: CITY_NAMES.bg},
-  ];
+  // The query already sorts `price asc nulls last`, so the first priced row is
+  // the cheapest. Offers with no price sink to the bottom and are never marked.
+  const cheapestIndex = offers.findIndex((o) => o.priceRsd !== null);
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10 text-black dark:text-zinc-100">
+    <PageShell width="narrow">
       {offers.length ? (
         <JsonLd data={dishOffersJsonLd(dish.nameSr, offers, locale)} />
       ) : null}
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{dish.nameSr}</h1>
-        {locale === 'en' && dish.nameEn ? (
-          <p className="text-sm text-zinc-500">{dish.nameEn}</p>
-        ) : null}
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {t('intro', {dish: dish.nameSr})}
-        </p>
-        <Link href="/jela" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
-          {t('backToDishes')}
-        </Link>
-      </header>
 
-      {/* City filter — no-JS GET form. */}
-      <form method="get" className="flex flex-wrap items-center gap-2">
-        {cityOptions.map((opt) => (
-          <label key={opt.value || 'all'} className="cursor-pointer">
-            <input
-              type="radio"
-              name="city"
-              value={opt.value}
-              defaultChecked={(city ?? '') === opt.value}
-              className="peer sr-only"
-            />
-            <span className="inline-block rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-700 peer-checked:border-black peer-checked:bg-black peer-checked:text-white dark:border-zinc-700 dark:text-zinc-300 dark:peer-checked:border-zinc-100 dark:peer-checked:bg-zinc-100 dark:peer-checked:text-black">
-              {opt.label}
-            </span>
-          </label>
-        ))}
-        <button
-          type="submit"
-          className="rounded-md border border-zinc-300 px-3 py-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
-        >
-          {th('search')}
-        </button>
-      </form>
+      <PageHeader
+        back={{href: '/jela', label: t('backToDishes')}}
+        eyebrow={locale === 'en' && dish.nameEn ? dish.nameEn : undefined}
+        title={dish.nameSr}
+        intro={t('intro', {dish: dish.nameSr})}
+      />
 
-      {offers.length === 0 ? (
-        <p className="text-sm text-zinc-500">{t('noOffers', {dish: dish.nameSr})}</p>
-      ) : (
-        <ol className="flex flex-col divide-y divide-zinc-100 dark:divide-zinc-900">
-          {offers.map((o, i) => (
-            <li key={`${o.slug}-${i}`}>
-              <Link
-                href={`/lokal/${o.slug}`}
-                className="flex items-baseline justify-between gap-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900"
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium">
-                    {o.brandName}
-                    {o.label ? <span className="text-zinc-500"> · {o.label}</span> : null}
-                  </span>
-                  <span className="text-xs text-zinc-500">
-                    {o.itemName} · {CITY_NAMES[o.city]}
-                  </span>
-                </div>
-                <span className="whitespace-nowrap tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
-                  {o.priceRsd === null ? '—' : tl('priceRsd', {amount: o.priceRsd})}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ol>
-      )}
-    </main>
+      <Filters
+        className="flex flex-wrap items-center gap-2"
+        busyLabel={th('filtering')}
+        fields={
+          <>
+            <CityChips selected={city} />
+            <NoJsSubmit />
+          </>
+        }
+      >
+        {offers.length === 0 ? (
+          <EmptyState>{t('noOffers', {dish: dish.nameSr})}</EmptyState>
+        ) : (
+          /*
+            The price ladder — the page this whole product exists for. Prices are
+            set in tabular mono so the digits line up into a column you can scan
+            without reading, and the cheapest row carries a paprika rail.
+
+            The rank number is real information here (it IS the price order),
+            which is why this page is numbered and no other list on the site is.
+          */
+          <ol className="overflow-hidden rounded-xl border border-line bg-card">
+            {offers.map((o, i) => {
+              const isCheapest = i === cheapestIndex;
+              return (
+                <li
+                  key={`${o.slug}-${i}`}
+                  className="border-b border-line last:border-b-0"
+                >
+                  <Link
+                    href={`/lokal/${o.slug}`}
+                    className={`flex items-center gap-3 border-l-2 py-3.5 pl-3 pr-4 transition-colors hover:bg-raised sm:gap-4 ${
+                      isCheapest
+                        ? 'border-l-paprika bg-paprika-tint/40'
+                        : 'border-l-transparent'
+                    }`}
+                  >
+                    <span className="num w-5 shrink-0 text-center text-sm text-ink-muted">
+                      {i + 1}
+                    </span>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-ink">
+                        {o.brandName}
+                        {o.label ? (
+                          <span className="font-normal text-ink-muted">
+                            {' '}
+                            · {o.label}
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="truncate text-sm text-ink-muted">
+                        {o.itemName} · {CITY_NAMES[o.city]}
+                      </p>
+                    </div>
+
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {o.priceRsd === null ? (
+                        <span className="text-sm text-ink-muted">
+                          {t('noPrice')}
+                        </span>
+                      ) : (
+                        <span
+                          className={`num whitespace-nowrap text-lg font-semibold ${
+                            isCheapest ? 'text-paprika-accent' : 'text-ink'
+                          }`}
+                        >
+                          {tl('priceRsd', {amount: o.priceRsd})}
+                        </span>
+                      )}
+                      {isCheapest ? (
+                        <Pill variant="brand">{t('cheapest')}</Pill>
+                      ) : null}
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </Filters>
+    </PageShell>
   );
 }

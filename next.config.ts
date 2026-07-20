@@ -1,7 +1,31 @@
 import type {NextConfig} from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+/*
+  next/image refuses to optimise a remote host that isn't allowlisted, and all
+  our photos live in Supabase Storage. Derived from the env var rather than
+  hardcoded so it follows the project across environments; the guard keeps a
+  build from crashing on `new URL(undefined)` when the var is missing.
+
+  The pathname is scoped to the public bucket prefix — an open `/**` would let
+  anyone use our optimiser as a proxy for arbitrary paths on that host.
+*/
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseHost = supabaseUrl ? new URL(supabaseUrl).hostname : undefined;
+
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: supabaseHost
+      ? [
+          {
+            protocol: 'https',
+            hostname: supabaseHost,
+            pathname: '/storage/v1/object/public/**',
+          },
+        ]
+      : [],
+  },
+
   // Server Actions default to a 1 MB request body, which rejects real photos
   // (2–8 MB) before our upload code runs — the "server error" on upload. Raise
   // it to cover MAX_BYTES (15 MB) in src/services/photos.ts, with headroom.

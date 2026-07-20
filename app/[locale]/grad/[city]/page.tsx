@@ -2,8 +2,8 @@ import type {Metadata} from 'next';
 import {notFound} from 'next/navigation';
 import {getTranslations, setRequestLocale} from 'next-intl/server';
 import JsonLd from '@/src/components/json-ld';
-import LocationCard from '@/src/components/location-card';
-import {Link} from '@/src/i18n/navigation';
+import ResultsGrid from '@/src/components/results-grid';
+import {PageHeader, PageShell} from '@/src/components/shell';
 import {CITY_NAMES, parseCity} from '@/src/lib/cities';
 import {listingJsonLd} from '@/src/lib/jsonld';
 import {listPublishedLocations} from '@/src/services/locations';
@@ -33,29 +33,27 @@ export default async function CityPage({params}: Props) {
   const name = CITY_NAMES[parsed];
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10 text-black dark:text-zinc-100">
+    <PageShell>
       {results.length ? (
-        <JsonLd data={listingJsonLd(t('heading', {city: name}), results, locale)} />
+        <JsonLd
+          data={listingJsonLd(t('heading', {city: name}), results, locale)}
+        />
       ) : null}
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t('heading', {city: name})}
-        </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">{t('intro', {city: name})}</p>
-        <Link href="/" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
-          {t('backToSearch')}
-        </Link>
-      </header>
 
-      {results.length === 0 ? (
-        <p className="text-sm text-zinc-500">{th('resultsNone')}</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {results.map((loc) => (
-            <LocationCard key={loc.slug} loc={loc} />
-          ))}
-        </div>
-      )}
-    </main>
+      <PageHeader
+        back={{href: '/', label: t('backToSearch')}}
+        title={t('heading', {city: name})}
+        intro={t('intro', {city: name})}
+      />
+
+      <div className="flex flex-col gap-4">
+        {results.length ? (
+          <p className="text-sm text-ink-muted">
+            {th('resultsCount', {count: results.length})}
+          </p>
+        ) : null}
+        <ResultsGrid locations={results} empty={th('resultsNone')} />
+      </div>
+    </PageShell>
   );
 }

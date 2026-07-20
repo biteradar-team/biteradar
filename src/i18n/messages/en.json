@@ -1,4 +1,17 @@
 {
+  "Nav": {
+    "brand": "BiteRadar",
+    "dishes": "Dishes",
+    "categories": "Categories",
+    "skipToContent": "Skip to content",
+    "switchLanguage": "Switch to Serbian",
+    "themeToLight": "Switch to light theme",
+    "themeToDark": "Switch to dark theme",
+    "footerTagline": "Find the dish, not just the restaurant.",
+    "footerCities": "Cities",
+    "footerBrowse": "Browse",
+    "footerNote": "Prices and opening hours are entered by people and can go stale. Check with the venue."
+  },
   "Home": {
     "tagline": "Google Maps for food — find the dish, not just the restaurant.",
     "searchPlaceholder": "Search dishes and restaurants…",
@@ -6,12 +19,17 @@
     "allCities": "All cities",
     "openNow": "Open now",
     "noResults": "No results. Try a different search.",
-    "resultsNone": "No locations published yet."
+    "resultsNone": "No locations published yet.",
+    "resultsCount": "{count, plural, one {# place} other {# places}}",
+    "clearFilters": "Clear filters",
+    "filtering": "Loading results…",
+    "popularDishes": "Popular dishes",
+    "noPhoto": "No photo"
   },
   "City": {
     "heading": "Restaurants in {city}",
     "intro": "Browse places in {city} — menus with prices, opening hours and photos.",
-    "backToSearch": "← Search"
+    "backToSearch": "Search"
   },
   "Dishes": {
     "heading": "Dishes",
@@ -21,7 +39,9 @@
   "Dish": {
     "intro": "{dish} prices across locations — cheapest first.",
     "noOffers": "No location has {dish} on the menu yet.",
-    "backToDishes": "← All dishes"
+    "backToDishes": "All dishes",
+    "cheapest": "Cheapest",
+    "noPrice": "No price listed"
   },
   "Cuisines": {
     "heading": "Categories",
@@ -30,7 +50,7 @@
   },
   "Cuisine": {
     "intro": "Places serving “{cuisine}”.",
-    "backToCuisines": "← All categories"
+    "backToCuisines": "All categories"
   },
   "Location": {
     "openingHours": "Opening hours",
@@ -42,6 +62,8 @@
     "closed": "Closed",
     "priceRsd": "{amount, number} RSD",
     "noMenu": "Menu not entered yet.",
+    "comparePrices": "Compare prices",
+    "today": "Today",
     "days": {
       "0": "Sunday",
       "1": "Monday",
@@ -51,5 +73,10 @@
       "5": "Friday",
       "6": "Saturday"
     }
+  },
+  "NotFound": {
+    "heading": "Page not found",
+    "intro": "The link may be out of date, or the location was removed.",
+    "backHome": "Back to search"
   }
 }
