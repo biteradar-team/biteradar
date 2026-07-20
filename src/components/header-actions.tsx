@@ -1,7 +1,7 @@
 'use client';
 
 import {useLocale, useTranslations} from 'next-intl';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {Link, usePathname} from '@/src/i18n/navigation';
 import {MoonIcon, SunIcon} from './icons';
 
@@ -53,6 +53,24 @@ export default function HeaderActions() {
       // Private mode / storage disabled — the toggle still works for this page.
     }
   }
+
+  /*
+    Re-assert the saved theme after a locale switch. Switching language
+    re-renders the root layout (new <html lang>), and the server markup carries
+    no data-theme — suppressHydrationWarning only covers the FIRST hydration, so
+    on this later re-render React drops the attribute back to the dark default.
+    The inline <head> script only runs on a full load, not this soft nav, so we
+    restore it here. Keyed on locale; a no-op when the theme is already right.
+  */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      document.documentElement.dataset.theme =
+        saved === 'light' ? 'light' : 'dark';
+    } catch {
+      // Storage disabled — leave whatever the inline script set.
+    }
+  }, [locale]);
 
   return (
     <div className="flex items-center gap-2">
