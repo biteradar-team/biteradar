@@ -1,6 +1,7 @@
 import type {Metadata} from "next";
 import {Archivo, Geist, Geist_Mono} from "next/font/google";
 import {notFound} from "next/navigation";
+import {Analytics} from "@vercel/analytics/next";
 import {hasLocale, NextIntlClientProvider} from "next-intl";
 import {setRequestLocale} from "next-intl/server";
 import SiteFooter from "@/src/components/site-footer";
@@ -100,6 +101,9 @@ export default async function LocaleLayout({
           {children}
           <SiteFooter />
         </NextIntlClientProvider>
+        {/* Pageviews + the custom search/zero-result/result_click events, zero
+            config. No-op until Vercel Analytics is enabled for the project. */}
+        <Analytics />
       </body>
     </html>
   );

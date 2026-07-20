@@ -1,3 +1,6 @@
+'use client';
+
+import {track} from '@vercel/analytics';
 import Image from 'next/image';
 import {useTranslations} from 'next-intl';
 import {Link} from '@/src/i18n/navigation';
@@ -17,8 +20,11 @@ function PriceBadge({band}: {band: PriceBand}) {
  * One result in a location list. Links to the full profile via the locale-aware
  * `Link` (so `/lokal/…` on sr, `/en/lokal/…` on en).
  *
- * Presentational server component — `useTranslations` (the non-async hook) is
- * legal here in next-intl v4.
+ * Client component only so a card click can fire the `result_click` analytics
+ * event (§3.1) — everything it renders (`useTranslations`, `Link`, `Image`) is
+ * client-safe. ponytail: this ships the card as client JS; the search/zero-result
+ * events don't. Drop the 'use client' + onClick to keep the list fully server-
+ * rendered if result_click isn't worth the bundle.
  */
 export default function LocationCard({loc}: {loc: PublicLocationSummary}) {
   const t = useTranslations('Home');
@@ -27,6 +33,7 @@ export default function LocationCard({loc}: {loc: PublicLocationSummary}) {
   return (
     <Link
       href={`/lokal/${loc.slug}`}
+      onClick={() => track('result_click', {slug: loc.slug})}
       className="group flex flex-col overflow-hidden rounded-xl border border-line bg-card transition-all duration-200 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lg"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-raised">

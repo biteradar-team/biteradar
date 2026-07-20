@@ -13,6 +13,7 @@ import JsonLd from '@/src/components/json-ld';
 import LocationsMap from '@/src/components/locations-map';
 import NearMeButton from '@/src/components/near-me-button';
 import ResultsGrid from '@/src/components/results-grid';
+import SearchTracker from '@/src/components/search-tracker';
 import {PageShell} from '@/src/components/shell';
 import {Link} from '@/src/i18n/navigation';
 import {parseCity} from '@/src/lib/cities';
@@ -78,6 +79,8 @@ export default async function Home({params, searchParams}: Props) {
       {results.length ? (
         <JsonLd data={listingJsonLd('BiteRadar', results, locale)} />
       ) : null}
+      <SearchTracker q={q} count={results.length} />
+
 
       <h1 className="max-w-2xl text-4xl font-bold text-balance sm:text-5xl">
         {t('tagline')}
