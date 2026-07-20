@@ -35,7 +35,7 @@ export default async function CuisinePage({params, searchParams}: Props) {
   const th = await getTranslations('Home');
 
   const city = parseCity((await searchParams).city);
-  const results = await listPublishedLocations({cuisine: cuisine.id, city});
+  const results = await listPublishedLocations({cuisine: slug, city});
 
   return (
     <PageShell>
