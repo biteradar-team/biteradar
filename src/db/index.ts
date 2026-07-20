@@ -12,6 +12,10 @@ if (!url) {
 }
 
 // prepare:false keeps us compatible with Supabase's transaction pooler.
-const client = postgres(url, {prepare: false});
+// max:1 — each build worker / serverless instance only runs one query at a
+// time, so one connection is enough. Without it postgres-js opens up to 10,
+// and a few concurrent builds exhaust the pooler's 15-client session limit
+// (EMAXCONNSESSION), which fails prerender on whichever build loses the race.
+const client = postgres(url, {prepare: false, max: 1});
 
 export const db = drizzle(client, {schema, casing: 'snake_case'});
