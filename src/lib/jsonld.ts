@@ -1,3 +1,4 @@
+import type {Guide} from '@/src/content/guides';
 import {routing} from '@/src/i18n/routing';
 import {CITY_NAMES} from '@/src/lib/cities';
 import {siteUrl} from '@/src/lib/site';
@@ -70,6 +71,17 @@ export function dishOffersJsonLd(dishName: string, offers: DishOffer[], locale: 
         ...(o.priceRsd !== null ? {price: o.priceRsd, priceCurrency: 'RSD'} : {}),
       },
     })),
+  };
+}
+
+/** Article schema for a tourist guide page. Locale-picked title/intro. */
+export function articleJsonLd(guide: Guide, locale: 'sr' | 'en') {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: guide.title[locale],
+    description: guide.intro[locale],
+    url: absUrl(locale, `/guides/${guide.slug}`),
   };
 }
 

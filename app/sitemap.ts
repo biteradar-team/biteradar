@@ -1,4 +1,5 @@
 import type {MetadataRoute} from 'next';
+import {GUIDES} from '@/src/content/guides';
 import {routing} from '@/src/i18n/routing';
 import {siteUrl} from '@/src/lib/site';
 import {listCuisinesWithLocations} from '@/src/services/cuisines';
@@ -37,6 +38,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...dishes.map((d) => ({path: `/jelo/${d.slug}`})),
     {path: '/kuhinje'},
     ...cuisines.map((c) => ({path: `/kuhinja/${c.slug}`})),
+    {path: '/guides'},
+    ...GUIDES.map((g) => ({path: `/guides/${g.slug}`})),
     ...slugs.map((s) => ({path: `/lokal/${s.slug}`, lastModified: s.updatedAt})),
   ];
 
