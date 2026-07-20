@@ -1,5 +1,12 @@
 import {getTranslations, setRequestLocale} from 'next-intl/server';
-import CityChips, {NoJsSubmit} from '@/src/components/filter-fields';
+import CityChips, {
+  CardsChip,
+  CuisineSelect,
+  LateNightChip,
+  NoJsSubmit,
+  OpenNowChip,
+  PriceChips,
+} from '@/src/components/filter-fields';
 import Filters from '@/src/components/filters';
 import {SearchIcon} from '@/src/components/icons';
 import JsonLd from '@/src/components/json-ld';
@@ -8,6 +15,8 @@ import {PageShell} from '@/src/components/shell';
 import {Link} from '@/src/i18n/navigation';
 import {parseCity} from '@/src/lib/cities';
 import {listingJsonLd} from '@/src/lib/jsonld';
+import {parsePriceBand} from '@/src/lib/prices';
+import {listCuisinesWithLocations} from '@/src/services/cuisines';
 import {listDishesWithOffers} from '@/src/services/dishes';
 import {listPublishedLocations} from '@/src/services/locations';
 
@@ -15,7 +24,15 @@ import {listPublishedLocations} from '@/src/services/locations';
 // which is what we want — the list reflects the live query/filters.
 type Props = {
   params: Promise<{locale: string}>;
-  searchParams: Promise<{q?: string; city?: string; openNow?: string}>;
+  searchParams: Promise<{
+    q?: string;
+    city?: string;
+    openNow?: string;
+    late?: string;
+    cards?: string;
+    cuisine?: string;
+    price?: string;
+  }>;
 };
 
 export default async function Home({params, searchParams}: Props) {
@@ -27,17 +44,24 @@ export default async function Home({params, searchParams}: Props) {
   const q = sp.q?.trim() ?? '';
   const city = parseCity(sp.city);
   const openNow = Boolean(sp.openNow);
+  const late = Boolean(sp.late);
+  const cards = Boolean(sp.cards);
+  const price = parsePriceBand(sp.price);
+  // Not validated against the cuisine list — an unknown slug simply matches
+  // nothing and falls through to the empty state.
+  const cuisine = sp.cuisine?.trim() || undefined;
 
   // The dish rail is the product's actual claim — "find the dish, not the
   // restaurant" — so it goes above the results. `listDishesWithOffers` only
   // returns dishes that some location actually prices, so the rail simply
-  // disappears rather than rendering empty chips.
-  const [results, dishes] = await Promise.all([
-    listPublishedLocations({q, city, openNow}),
+  // disappears rather than rendering empty chips. Same for the cuisine select.
+  const [results, dishes, cuisines] = await Promise.all([
+    listPublishedLocations({q, city, openNow, late, cards, cuisine, price}),
     listDishesWithOffers(),
+    listCuisinesWithLocations(),
   ]);
 
-  const hasFilter = Boolean(q || city || openNow);
+  const hasFilter = Boolean(q || city || openNow || late || cards || cuisine || price);
 
   return (
     <PageShell>
@@ -71,19 +95,29 @@ export default async function Home({params, searchParams}: Props) {
 
             <div className="flex flex-wrap items-center gap-2">
               <CityChips selected={city} />
+              <CuisineSelect
+                cuisines={cuisines}
+                selected={cuisine}
+                locale={locale}
+              />
+              <OpenNowChip checked={openNow} />
+              <LateNightChip checked={late} />
+              <CardsChip checked={cards} />
+            </div>
 
-              <label className="ml-auto cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="openNow"
-                  defaultChecked={openNow}
-                  className="peer sr-only"
-                />
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3.5 py-1.5 text-sm text-ink-muted transition-colors hover:border-ink-muted hover:text-ink peer-checked:border-open peer-checked:bg-open-tint peer-checked:font-medium peer-checked:text-open peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
-                  <span className="size-1.5 rounded-full bg-current" aria-hidden />
-                  {t('openNow')}
-                </span>
-              </label>
+            {/* Price on its own row — four chips plus the row above would wrap
+                into a ragged block on a phone. */}
+            <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+              <PriceChips selected={price} />
+              {hasFilter ? (
+                // A plain link, so resetting works with JS off too.
+                <Link
+                  href="/"
+                  className="ml-auto text-sm text-ink-muted underline underline-offset-4 transition-colors hover:text-ink"
+                >
+                  {t('clearFilters')}
+                </Link>
+              ) : null}
             </div>
 
             {dishes.length ? (

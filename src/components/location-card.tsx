@@ -2,8 +2,16 @@ import Image from 'next/image';
 import {useTranslations} from 'next-intl';
 import {Link} from '@/src/i18n/navigation';
 import {CITY_NAMES} from '@/src/lib/cities';
+import {priceBandLabel, type PriceBand} from '@/src/lib/prices';
 import type {PublicLocationSummary} from '@/src/services/locations';
 import Pill from './pill';
+
+/** Same wording as the price filter chips — both read `priceBandLabel`. */
+function PriceBadge({band}: {band: PriceBand}) {
+  const t = useTranslations('Home');
+  const {key, values} = priceBandLabel(band);
+  return <Pill variant="brand">{t(key, values)}</Pill>;
+}
 
 /**
  * One result in a location list. Links to the full profile via the locale-aware
@@ -63,6 +71,9 @@ export default function LocationCard({loc}: {loc: PublicLocationSummary}) {
 
         <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
           {loc.openNow ? <Pill variant="open">{t('openNow')}</Pill> : null}
+          {/* Price comparison is the product's actual claim, so the band earns a
+              spot on the card — but only once a menu is priced. */}
+          {loc.priceBand ? <PriceBadge band={loc.priceBand} /> : null}
           {loc.acceptsCards === 'yes' ? (
             <Pill variant="neutral">{tl('cardsYes')}</Pill>
           ) : null}

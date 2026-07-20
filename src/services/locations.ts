@@ -12,6 +12,7 @@ import {
   restaurants,
 } from '@/src/db/schema';
 import {type City} from '@/src/lib/cities';
+import {PRICE_BAND_MAX, type PriceBand} from '@/src/lib/prices';
 import {matchDish, type DishCandidate} from '@/src/search/dish-match';
 import {expandSynonyms, normalize} from '@/src/search/normalize';
 import {type LocationPhoto, listLocationPhotos, photoPublicUrl} from './photos';
@@ -348,9 +349,22 @@ export type PublicLocationSummary = {
   acceptsCards: 'yes' | 'no' | 'unknown';
   photoUrl: string | null;
   openNow: boolean;
+  /** ₽ / ₽₽ / ₽₽₽, or null when the location has no priced menu item yet. */
+  priceBand: PriceBand | null;
 };
 
-export type ListParams = {q?: string; city?: City; openNow?: boolean; cuisine?: string};
+export type ListParams = {
+  q?: string;
+  city?: City;
+  openNow?: boolean;
+  /** Cuisine SLUG (e.g. `srpska`), not the UUID. */
+  cuisine?: string;
+  /** Only locations that definitely take cards (unknown does not count). */
+  cards?: boolean;
+  /** Open at or past 23:00 on at least one day of the week. */
+  late?: boolean;
+  price?: PriceBand;
+};
 
 /**
  * Home-page location list, filtered by free-text `q`, `city`, and `openNow`.
@@ -368,11 +382,16 @@ export type ListParams = {q?: string; city?: City; openNow?: boolean; cuisine?: 
  * `openNow`: computed against `now()` in Europe/Belgrade, handling past-midnight
  * spans (a row whose `closes_at <= opens_at` belongs to the previous weekday
  * after midnight). Open locations sort first regardless of the filter.
+ *
+ * `late` is the „otvoreno posle 23h" preset (§3.1) and asks a different question
+ * than `openNow` — about the schedule, not the current time. `cards`, `price` and
+ * `cuisine` round out the §3.1 filter set; `price` buckets the location's average
+ * current menu price via `PRICE_BAND_MAX`.
  */
 export async function listPublishedLocations(
   params: ListParams = {},
 ): Promise<PublicLocationSummary[]> {
-  const {city, openNow, cuisine} = params;
+  const {city, openNow, cuisine, cards, late, price} = params;
   const qnorm = params.q ? normalize(params.q) : '';
 
   // "open right now" as a reusable boolean expression (used in SELECT, and in
@@ -390,13 +409,42 @@ export async function listPublishedLocations(
     )
   )`;
 
+  // Price band from the location's AVERAGE current menu price (`pr` below).
+  // Bucketed in SQL rather than in JS because the WHERE needs it too — an alias
+  // isn't visible there, so the expression is reused the same way `openNowExpr` is.
+  const priceBandExpr = sql`case
+    when pr.avg_price is null then null
+    when pr.avg_price <= ${PRICE_BAND_MAX[0]} then 1
+    when pr.avg_price <= ${PRICE_BAND_MAX[1]} then 2
+    else 3
+  end`;
+
   const conditions = [sql`l.status = 'published'`];
   if (city) conditions.push(sql`l.city = ${city}`);
   if (openNow) conditions.push(openNowExpr);
+  // `is true` on purpose: a NULL means "we haven't checked", which must not pass
+  // a filter that promises card payment.
+  if (cards) conditions.push(sql`l.accepts_cards is true`);
+  if (late) {
+    // A SCHEDULE question, not a clock question — so it deliberately does NOT
+    // reuse `openNowExpr`, which is pinned to `n.ts`. A span that wraps past
+    // midnight (`closes_at <= opens_at`, which also covers 24h) is open past 23h
+    // by definition; otherwise the closing time itself has to be later than 23:00.
+    conditions.push(sql`exists (
+      select 1 from opening_hours oh
+      where oh.location_id = l.id
+        and (oh.closes_at <= oh.opens_at or oh.closes_at > time '23:00')
+    )`);
+  }
+  // NULL band (no priced menu item) fails the comparison, so unpriced locations
+  // drop out when the filter is on and stay in when it's off. That's intended:
+  // unknown is not a match.
+  if (price) conditions.push(sql`${priceBandExpr} = ${price}`);
   if (cuisine) {
     conditions.push(sql`exists (
       select 1 from restaurant_cuisines rc
-      where rc.restaurant_id = l.restaurant_id and rc.cuisine_id = ${cuisine}
+      join cuisines c on c.id = rc.cuisine_id
+      where rc.restaurant_id = l.restaurant_id and c.slug = ${cuisine}
     )`);
   }
   if (qnorm) {
@@ -426,9 +474,22 @@ export async function listPublishedLocations(
       l.accepts_cards,
       (select p.object_key from photos p
         where p.location_id = l.id order by p.sort_order limit 1) as photo_key,
-      ${openNowExpr} as open_now
+      ${openNowExpr} as open_now,
+      ${priceBandExpr} as price_band
     from n, restaurant_locations l
     join restaurants r on r.id = l.restaurant_id
+    -- Average of each menu item's CURRENT price (latest by valid_from — the same
+    -- price-history rule the profile and dish pages use). LEFT so a location with
+    -- no priced menu still shows up when the price filter is off.
+    left join lateral (
+      select avg(cur.amount_rsd)::int as avg_price
+      from menu_items mi
+      cross join lateral (
+        select p.amount_rsd from menu_item_prices p
+        where p.menu_item_id = mi.id order by p.valid_from desc limit 1
+      ) cur
+      where mi.location_id = l.id
+    ) pr on true
     where ${sql.join(conditions, sql` and `)}
     order by open_now desc, r.name
     limit 100
@@ -444,6 +505,7 @@ export async function listPublishedLocations(
       r.accepts_cards === null ? 'unknown' : r.accepts_cards ? 'yes' : 'no',
     photoUrl: r.photo_key ? photoPublicUrl(r.photo_key as string) : null,
     openNow: Boolean(r.open_now),
+    priceBand: (r.price_band as PriceBand | null) ?? null,
   }));
 }
 
