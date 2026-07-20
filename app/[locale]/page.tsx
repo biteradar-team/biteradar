@@ -10,11 +10,14 @@ import CityChips, {
 import Filters from '@/src/components/filters';
 import {SearchIcon} from '@/src/components/icons';
 import JsonLd from '@/src/components/json-ld';
+import LocationsMap from '@/src/components/locations-map';
+import NearMeButton from '@/src/components/near-me-button';
 import ResultsGrid from '@/src/components/results-grid';
 import {PageShell} from '@/src/components/shell';
 import {Link} from '@/src/i18n/navigation';
 import {parseCity} from '@/src/lib/cities';
 import {listingJsonLd} from '@/src/lib/jsonld';
+import {parseCoords} from '@/src/lib/maptiler';
 import {parsePriceBand} from '@/src/lib/prices';
 import {listCuisinesWithLocations} from '@/src/services/cuisines';
 import {listDishesWithOffers} from '@/src/services/dishes';
@@ -32,6 +35,8 @@ type Props = {
     cards?: string;
     cuisine?: string;
     price?: string;
+    lat?: string;
+    lng?: string;
   }>;
 };
 
@@ -50,18 +55,23 @@ export default async function Home({params, searchParams}: Props) {
   // Not validated against the cuisine list — an unknown slug simply matches
   // nothing and falls through to the empty state.
   const cuisine = sp.cuisine?.trim() || undefined;
+  // „Blizu mene": the user's position from the geolocation button. Validated at
+  // the trust boundary because it flows into a SQL distance sort.
+  const near = parseCoords(sp.lat, sp.lng);
 
   // The dish rail is the product's actual claim — "find the dish, not the
   // restaurant" — so it goes above the results. `listDishesWithOffers` only
   // returns dishes that some location actually prices, so the rail simply
   // disappears rather than rendering empty chips. Same for the cuisine select.
   const [results, dishes, cuisines] = await Promise.all([
-    listPublishedLocations({q, city, openNow, late, cards, cuisine, price}),
+    listPublishedLocations({q, city, openNow, late, cards, cuisine, price, near}),
     listDishesWithOffers(),
     listCuisinesWithLocations(),
   ]);
 
-  const hasFilter = Boolean(q || city || openNow || late || cards || cuisine || price);
+  const hasFilter = Boolean(
+    q || city || openNow || late || cards || cuisine || price || near,
+  );
 
   return (
     <PageShell>
@@ -103,6 +113,11 @@ export default async function Home({params, searchParams}: Props) {
               <OpenNowChip checked={openNow} />
               <LateNightChip checked={late} />
               <CardsChip checked={cards} />
+              <NearMeButton
+                label={t('nearMe')}
+                errorLabel={t('nearMeError')}
+                active={Boolean(near)}
+              />
             </div>
 
             {/* Price on its own row — four chips plus the row above would wrap
@@ -144,6 +159,22 @@ export default async function Home({params, searchParams}: Props) {
         }
       >
         <div className="flex flex-col gap-4">
+          {/* Map is fed by the SAME `results` the list renders, so the two can
+              never disagree. Hidden when there's nothing to place (no results and
+              no „you" pin). */}
+          {results.length || near ? (
+            <LocationsMap
+              pins={results.map((r) => ({
+                slug: r.slug,
+                name: r.brandName,
+                lat: r.lat,
+                lng: r.lng,
+              }))}
+              userLoc={near}
+              locale={locale}
+              className="h-72 sm:h-96"
+            />
+          ) : null}
           {results.length ? (
             <p className="text-sm text-ink-muted">
               {t('resultsCount', {count: results.length})}

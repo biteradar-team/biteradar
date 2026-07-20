@@ -351,6 +351,9 @@ export type PublicLocationSummary = {
   openNow: boolean;
   /** ₽ / ₽₽ / ₽₽₽, or null when the location has no priced menu item yet. */
   priceBand: PriceBand | null;
+  /** Map pin coordinates (geog is NOT NULL, so always present). */
+  lat: number;
+  lng: number;
 };
 
 export type ListParams = {
@@ -364,6 +367,8 @@ export type ListParams = {
   /** Open at or past 23:00 on at least one day of the week. */
   late?: boolean;
   price?: PriceBand;
+  /** „Blizu mene": the user's position. Sorts by distance instead of open/name. */
+  near?: {lat: number; lng: number};
 };
 
 /**
@@ -391,7 +396,7 @@ export type ListParams = {
 export async function listPublishedLocations(
   params: ListParams = {},
 ): Promise<PublicLocationSummary[]> {
-  const {city, openNow, cuisine, cards, late, price} = params;
+  const {city, openNow, cuisine, cards, late, price, near} = params;
   const qnorm = params.q ? normalize(params.q) : '';
 
   // "open right now" as a reusable boolean expression (used in SELECT, and in
@@ -467,11 +472,19 @@ export async function listPublishedLocations(
     )`);
   }
 
+  // „Blizu mene": order by KNN distance (the `<->` operator is index-assisted on
+  // restaurant_locations_geog_gist), so no arbitrary radius is needed and the
+  // list never comes back empty. Otherwise the default open-first, then A→Z.
+  const orderBy = near
+    ? sql`l.geog <-> st_setsrid(st_makepoint(${near.lng}, ${near.lat}), 4326)::geography`
+    : sql`open_now desc, r.name`;
+
   const rows = await db.execute(sql`
     with n as (select (now() at time zone 'Europe/Belgrade') as ts)
     select
       l.slug, r.name as brand_name, l.name as label, l.city, l.address,
       l.accepts_cards,
+      st_y(l.geog::geometry) as lat, st_x(l.geog::geometry) as lng,
       (select p.object_key from photos p
         where p.location_id = l.id order by p.sort_order limit 1) as photo_key,
       ${openNowExpr} as open_now,
@@ -491,7 +504,7 @@ export async function listPublishedLocations(
       where mi.location_id = l.id
     ) pr on true
     where ${sql.join(conditions, sql` and `)}
-    order by open_now desc, r.name
+    order by ${orderBy}
     limit 100
   `);
 
@@ -506,6 +519,8 @@ export async function listPublishedLocations(
     photoUrl: r.photo_key ? photoPublicUrl(r.photo_key as string) : null,
     openNow: Boolean(r.open_now),
     priceBand: (r.price_band as PriceBand | null) ?? null,
+    lat: Number(r.lat),
+    lng: Number(r.lng),
   }));
 }
 

@@ -334,6 +334,29 @@ async function main() {
       'left join must keep the unpriced location in the unfiltered list',
     );
 
+    // 11. „Blizu mene" — mirrors the KNN distance sort (`geog <-> point`) added to
+    // listPublishedLocations({near}), and the st_y/st_x the summary now selects.
+    // `pub` sits at (19.833, 45.251); the others ~250 m away at (19.835, 45.253),
+    // so a query point AT the pub must return the pub first.
+    const nearRows = await tx`
+      select l.slug,
+        st_y(l.geog::geometry) as lat, st_x(l.geog::geometry) as lng
+      from restaurant_locations l
+      where l.status = 'published'
+        and l.id in ${tx([pub.id, cheap, pricey, unpriced])}
+      order by l.geog <-> st_setsrid(st_makepoint(19.833, 45.251), 4326)::geography
+      limit 4`;
+    assert.equal(
+      nearRows[0].slug,
+      'search-smoke-pub',
+      'near-me must sort the closest location first',
+    );
+    assert.ok(
+      Number.isFinite(Number(nearRows[0].lat)) &&
+        Number.isFinite(Number(nearRows[0].lng)),
+      'summary lat/lng (st_y/st_x) must be finite numbers',
+    );
+
     throw new Rollback();
   });
 }
