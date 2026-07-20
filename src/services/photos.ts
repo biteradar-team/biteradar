@@ -57,8 +57,17 @@ export async function addLocationPhotos(
       .where(eq(photos.locationId, locationId));
     sortOrder = existing.length;
   } catch (err) {
+    // Surface the real cause — this is admin-only (behind requireAdmin), so the
+    // underlying reason (missing SUPABASE_SERVICE_ROLE_KEY / DATABASE_URL, DB
+    // auth failure, etc.) is safe to show and is the difference between a
+    // 5-second fix and a dead end. Almost always a stale/misconfigured env in
+    // the environment where it fails, NOT the upload code.
+    const reason = err instanceof Error ? err.message : String(err);
     console.error('photo upload setup failed:', err);
-    return {added: 0, errors: ['Otpremanje trenutno nije dostupno. Pokušajte ponovo.']};
+    return {
+      added: 0,
+      errors: [`Otpremanje trenutno nije dostupno (${reason}). Pokušajte ponovo.`],
+    };
   }
   let added = 0;
 
