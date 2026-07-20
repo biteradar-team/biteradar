@@ -3,6 +3,7 @@ import {Archivo, Geist, Geist_Mono} from "next/font/google";
 import {notFound} from "next/navigation";
 import ThemeScript from "@/src/components/theme-script";
 import {Analytics} from "@vercel/analytics/next";
+import {SpeedInsights} from "@vercel/speed-insights/next";
 import {hasLocale, NextIntlClientProvider} from "next-intl";
 import {setRequestLocale} from "next-intl/server";
 import SiteFooter from "@/src/components/site-footer";
@@ -106,6 +107,7 @@ export default async function LocaleLayout({
         {/* Pageviews + the custom search/zero-result/result_click events, zero
             config. No-op until Vercel Analytics is enabled for the project. */}
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
