@@ -3,6 +3,7 @@ import {Archivo, Geist, Geist_Mono} from "next/font/google";
 import {notFound} from "next/navigation";
 import {hasLocale, NextIntlClientProvider} from "next-intl";
 import {setRequestLocale} from "next-intl/server";
+import {Analytics} from "@vercel/analytics/next";
 import SiteFooter from "@/src/components/site-footer";
 import SiteHeader from "@/src/components/site-header";
 import {routing} from "@/src/i18n/routing";
@@ -100,6 +101,7 @@ export default async function LocaleLayout({
           {children}
           <SiteFooter />
         </NextIntlClientProvider>
+        <Analytics />
       </body>
     </html>
   );
