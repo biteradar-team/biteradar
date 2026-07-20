@@ -46,6 +46,14 @@
     "intro": "Pick a dish and compare prices across locations.",
     "empty": "No dishes with prices yet."
   },
+  "Guides": {
+    "heading": "Guides",
+    "intro": "Short guides to Serbian food, with prices across locations.",
+    "empty": "No guides yet.",
+    "backToGuides": "All guides",
+    "viewPrices": "Compare prices",
+    "viewLocation": "View location"
+  },
   "Dish": {
     "intro": "{dish} prices across locations — cheapest first.",
     "noOffers": "No location has {dish} on the menu yet.",
