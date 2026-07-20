@@ -66,6 +66,10 @@ export async function createLocation(
         geog: geog(data),
         acceptsCards: data.location.acceptsCards,
         status: data.location.status,
+        // ponytail: "verified" == "a curator last touched this row". Good enough
+        // for the trust badge at launch. Upgrade path: a distinct "mark verified"
+        // admin action if editing a typo should stop counting as re-verification.
+        verifiedAt: new Date(),
       })
       .returning({id: restaurantLocations.id, slug: restaurantLocations.slug});
 
@@ -109,6 +113,7 @@ export async function updateLocation(
         acceptsCards: data.location.acceptsCards,
         status: data.location.status,
         updatedAt: new Date(),
+        verifiedAt: new Date(), // see createLocation for the ponytail note
       })
       .where(eq(restaurantLocations.id, locationId));
 
@@ -214,6 +219,8 @@ export type PublicLocation = {
     lat: number;
     lng: number;
   };
+  /** When a curator last confirmed this row; null → badge is hidden (no lie). */
+  verifiedAt: Date | null;
   cuisines: string[]; // display names (nameSr), for JSON-LD servesCuisine
   hours: {day: number; opensAt: string; closesAt: string}[]; // open days only
   menu: {
@@ -246,6 +253,7 @@ export async function getPublishedLocationBySlug(
       city: restaurantLocations.city,
       address: restaurantLocations.address,
       acceptsCards: restaurantLocations.acceptsCards,
+      verifiedAt: restaurantLocations.verifiedAt,
       lat: sql<number>`st_y(${restaurantLocations.geog}::geometry)`,
       lng: sql<number>`st_x(${restaurantLocations.geog}::geometry)`,
     })
@@ -308,6 +316,7 @@ export async function getPublishedLocationBySlug(
       lat: row.lat,
       lng: row.lng,
     },
+    verifiedAt: row.verifiedAt,
     cuisines: cuisineRows.map((c) => c.name),
     hours: hours.map((h) => ({
       day: h.day,

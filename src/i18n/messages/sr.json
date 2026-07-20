@@ -74,6 +74,10 @@
     "priceRsd": "{amount, number} RSD",
     "noMenu": "Meni još nije unet.",
     "comparePrices": "Uporedi cene",
+    "verified": "Provereno {ago}",
+    "reportInaccuracy": "Prijavi netačan podatak",
+    "reportSubject": "Netačan podatak: {name}",
+    "reportBody": "Zdravo,\n\nprimetio/la sam netačan podatak na ovoj stranici:\n{url}\n\nOpis: ",
     "today": "Danas",
     "days": {
       "0": "Nedelja",
