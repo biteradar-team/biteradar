@@ -12,3 +12,6 @@ export function siteUrl(): string {
     '',
   );
 }
+
+/** Where "prijavi netačan podatak" reports go (§3.1: plain mailto, no accounts). */
+export const REPORT_EMAIL = 'support.biteradar@gmail.com';

@@ -7,9 +7,11 @@ import JsonLd from '@/src/components/json-ld';
 import LocationsMap from '@/src/components/locations-map';
 import Pill from '@/src/components/pill';
 import {PageShell} from '@/src/components/shell';
+import VerifiedBadge from '@/src/components/verified-badge';
 import {Link} from '@/src/i18n/navigation';
 import {CITY_NAMES as CITY} from '@/src/lib/cities';
 import {restaurantJsonLd} from '@/src/lib/jsonld';
+import {REPORT_EMAIL, siteUrl} from '@/src/lib/site';
 import {getPublishedLocationBySlug} from '@/src/services/locations';
 
 // Weekday display order (Monday first); DB uses 0 = Sunday.
@@ -69,6 +71,14 @@ export default async function LocationProfile({params}: Params) {
   const today = belgradeWeekday();
 
   const [hero, ...restPhotos] = loc.photos;
+
+  // „Prijavi netačan podatak" — plain mailto, no accounts (§3.1). The canonical
+  // URL in the body tells us which location the report is about.
+  const profileUrl = `${siteUrl()}/lokal/${loc.slug}`;
+  const reportHref =
+    `mailto:${REPORT_EMAIL}` +
+    `?subject=${encodeURIComponent(t('reportSubject', {name: loc.brand.name}))}` +
+    `&body=${encodeURIComponent(t('reportBody', {url: profileUrl}))}`;
 
   // Group menu items by section, preserving sortOrder (menu is pre-ordered).
   const sections = new Map<string, typeof loc.menu>();
@@ -138,6 +148,7 @@ export default async function LocationProfile({params}: Params) {
               {c}
             </Pill>
           ))}
+          <VerifiedBadge verifiedAt={loc.verifiedAt} locale={locale} />
         </div>
 
         {loc.brand.description ? (
@@ -281,6 +292,13 @@ export default async function LocationProfile({params}: Params) {
           ))
         )}
       </section>
+
+      {/* Report inaccuracy — plain link, zero JS. */}
+      <p className="text-sm text-ink-muted">
+        <a href={reportHref} className="underline hover:text-ink">
+          {t('reportInaccuracy')}
+        </a>
+      </p>
     </PageShell>
   );
 }

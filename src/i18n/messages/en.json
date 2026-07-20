@@ -74,6 +74,10 @@
     "priceRsd": "{amount, number} RSD",
     "noMenu": "Menu not entered yet.",
     "comparePrices": "Compare prices",
+    "verified": "Verified {ago}",
+    "reportInaccuracy": "Report incorrect information",
+    "reportSubject": "Incorrect information: {name}",
+    "reportBody": "Hi,\n\nI noticed incorrect information on this page:\n{url}\n\nDetails: ",
     "today": "Today",
     "days": {
       "0": "Sunday",
