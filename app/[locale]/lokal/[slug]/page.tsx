@@ -1,7 +1,11 @@
 import type {Metadata} from 'next';
+import Image from 'next/image';
 import {notFound} from 'next/navigation';
 import {getTranslations, setRequestLocale} from 'next-intl/server';
+import {ChevronRightIcon} from '@/src/components/icons';
 import JsonLd from '@/src/components/json-ld';
+import Pill from '@/src/components/pill';
+import {PageShell} from '@/src/components/shell';
 import {Link} from '@/src/i18n/navigation';
 import {CITY_NAMES as CITY} from '@/src/lib/cities';
 import {restaurantJsonLd} from '@/src/lib/jsonld';
@@ -9,6 +13,26 @@ import {getPublishedLocationBySlug} from '@/src/services/locations';
 
 // Weekday display order (Monday first); DB uses 0 = Sunday.
 const WEEK = [1, 2, 3, 4, 5, 6, 0];
+
+// Maps Intl's weekday name back to the DB's 0-6 index, so "today" can be
+// highlighted in the venue's own timezone rather than the server's.
+const DAY_INDEX: Record<string, number> = {
+  Sunday: 0,
+  Monday: 1,
+  Tuesday: 2,
+  Wednesday: 3,
+  Thursday: 4,
+  Friday: 5,
+  Saturday: 6,
+};
+
+function belgradeWeekday(): number {
+  const name = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Belgrade',
+    weekday: 'long',
+  }).format(new Date());
+  return DAY_INDEX[name] ?? -1;
+}
 
 type Params = {params: Promise<{locale: string; slug: string}>};
 
@@ -41,6 +65,9 @@ export default async function LocationProfile({params}: Params) {
 
   const openByDay = new Map(loc.hours.map((h) => [h.day, h]));
   const cards = loc.location.acceptsCards;
+  const today = belgradeWeekday();
+
+  const [hero, ...restPhotos] = loc.photos;
 
   // Group menu items by section, preserving sortOrder (menu is pre-ordered).
   const sections = new Map<string, typeof loc.menu>();
@@ -50,58 +77,93 @@ export default async function LocationProfile({params}: Params) {
     sections.get(key)!.push(item);
   }
 
+  const sectionHeading =
+    'font-expanded text-[11px] font-semibold uppercase text-ink-muted';
+
+  const title = (
+    <>
+      {loc.brand.name}
+      {loc.location.label ? (
+        <span className="font-normal opacity-70"> · {loc.location.label}</span>
+      ) : null}
+    </>
+  );
+
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-10 text-black dark:text-zinc-100">
+    <PageShell width="narrow">
       <JsonLd data={restaurantJsonLd(loc, locale)} />
-      {/* Header */}
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {loc.brand.name}
-          {loc.location.label ? (
-            <span className="text-zinc-500"> · {loc.location.label}</span>
-          ) : null}
-        </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {loc.location.address}, {CITY[loc.location.city]}
-        </p>
+
+      {/* Header. With a photo the name sits over it; without one it falls back
+          to a plain heading rather than an empty grey band. */}
+      {hero ? (
+        <div className="relative -mx-4 aspect-[16/10] overflow-hidden sm:mx-0 sm:aspect-[2/1] sm:rounded-xl">
+          <Image
+            src={hero.url}
+            alt={hero.altText ?? loc.brand.name}
+            fill
+            priority
+            sizes="(min-width: 768px) 768px, 100vw"
+            className="object-cover"
+          />
+          {/* Scrim, so the name stays legible over any photo. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-scrim via-scrim/50 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-4 sm:p-6">
+            <h1 className="text-3xl font-bold text-white sm:text-4xl">{title}</h1>
+            <p className="text-sm text-white/80">
+              {loc.location.address}, {CITY[loc.location.city]}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <header className="flex flex-col gap-1">
+          <h1 className="text-3xl font-bold sm:text-4xl">{title}</h1>
+          <p className="text-sm text-ink-muted">
+            {loc.location.address}, {CITY[loc.location.city]}
+          </p>
+        </header>
+      )}
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-2">
+          {cards === 'yes' ? (
+            <Pill variant="neutral">{t('cardsYes')}</Pill>
+          ) : cards === 'no' ? (
+            <Pill variant="warn">{t('cardsNo')}</Pill>
+          ) : (
+            <Pill variant="neutral">{t('cardsUnknown')}</Pill>
+          )}
+          {loc.cuisines.map((c) => (
+            <Pill key={c} variant="neutral">
+              {c}
+            </Pill>
+          ))}
+        </div>
+
         {loc.brand.description ? (
-          <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          <p className="max-w-prose text-[15px] text-ink-muted">
             {loc.brand.description}
           </p>
         ) : null}
-        <span
-          className={`w-fit rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            cards === 'yes'
-              ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300'
-              : cards === 'no'
-                ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
-          }`}
-        >
-          {cards === 'yes'
-            ? t('cardsYes')
-            : cards === 'no'
-              ? t('cardsNo')
-              : t('cardsUnknown')}
-        </span>
-      </header>
+      </div>
 
-      {/* Photos */}
-      {loc.photos.length > 0 ? (
+      {/* Remaining photos */}
+      {restPhotos.length > 0 ? (
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-            {t('photos')}
-          </h2>
+          <h2 className={sectionHeading}>{t('photos')}</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {loc.photos.map((p) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+            {restPhotos.map((p) => (
+              <div
                 key={p.id}
-                src={p.url}
-                alt={p.altText ?? loc.brand.name}
-                loading="lazy"
-                className="h-40 w-full rounded-lg object-cover"
-              />
+                className="relative aspect-[4/3] overflow-hidden rounded-lg bg-raised"
+              >
+                <Image
+                  src={p.url}
+                  alt={p.altText ?? loc.brand.name}
+                  fill
+                  sizes="(min-width: 640px) 240px, 45vw"
+                  className="object-cover"
+                />
+              </div>
             ))}
           </div>
         </section>
@@ -109,23 +171,38 @@ export default async function LocationProfile({params}: Params) {
 
       {/* Opening hours */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-          {t('openingHours')}
-        </h2>
-        <table className="w-full max-w-sm text-sm">
+        <h2 className={sectionHeading}>{t('openingHours')}</h2>
+        <table className="w-full max-w-sm overflow-hidden rounded-lg border border-line text-sm">
           <tbody>
             {WEEK.map((day) => {
               const h = openByDay.get(day);
+              const isToday = day === today;
               return (
-                <tr key={day} className="border-b border-zinc-100 dark:border-zinc-900">
-                  <td className="py-1.5 text-zinc-600 dark:text-zinc-400">
+                <tr
+                  key={day}
+                  className={`border-b border-line last:border-b-0 ${
+                    isToday ? 'bg-raised' : ''
+                  }`}
+                >
+                  <td
+                    className={`px-3 py-2 ${isToday ? 'font-medium text-ink' : 'text-ink-muted'}`}
+                  >
                     {t(`days.${day}`)}
+                    {isToday ? (
+                      <span className="ml-2 text-xs text-paprika-accent">
+                        {t('today')}
+                      </span>
+                    ) : null}
                   </td>
-                  <td className="py-1.5 text-right tabular-nums">
+                  <td className="num px-3 py-2 text-right">
                     {h ? (
-                      `${h.opensAt}–${h.closesAt}`
+                      <span className={isToday ? 'text-ink' : 'text-ink-muted'}>
+                        {h.opensAt}–{h.closesAt}
+                      </span>
                     ) : (
-                      <span className="text-zinc-400">{t('closed')}</span>
+                      <span className="text-ink-muted opacity-70">
+                        {t('closed')}
+                      </span>
                     )}
                   </td>
                 </tr>
@@ -137,45 +214,47 @@ export default async function LocationProfile({params}: Params) {
 
       {/* Menu */}
       <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
-          {t('menu')}
-        </h2>
+        <h2 className={sectionHeading}>{t('menu')}</h2>
         {loc.menu.length === 0 ? (
-          <p className="text-sm text-zinc-500">{t('noMenu')}</p>
+          <p className="text-sm text-ink-muted">{t('noMenu')}</p>
         ) : (
           [...sections.entries()].map(([section, items]) => (
-            <div key={section || '_'} className="flex flex-col gap-2">
+            <div key={section || '_'} className="flex flex-col gap-1">
               {section ? (
-                <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  {section}
-                </h3>
+                <h3 className="text-base font-semibold text-ink">{section}</h3>
               ) : null}
-              <ul className="flex flex-col gap-2">
+              <ul className="flex flex-col">
                 {items.map((item, i) => (
                   <li
                     key={i}
-                    className="flex items-baseline justify-between gap-4 border-b border-zinc-100 pb-2 dark:border-zinc-900"
+                    className="flex flex-col gap-0.5 border-b border-line py-2.5 last:border-b-0"
                   >
-                    <div className="flex flex-col">
+                    <div className="flex items-baseline gap-2">
                       {item.dishSlug ? (
+                        // The hook into price comparison: this dish exists on
+                        // other menus, so we can show what it costs elsewhere.
                         <Link
                           href={`/jelo/${item.dishSlug}`}
-                          className="w-fit hover:underline"
+                          className="group inline-flex items-baseline gap-0.5 text-ink hover:text-paprika-accent"
+                          title={t('comparePrices')}
                         >
                           {item.name}
+                          <ChevronRightIcon className="size-3.5 shrink-0 translate-y-0.5 text-paprika-accent" />
                         </Link>
                       ) : (
-                        <span>{item.name}</span>
+                        <span className="text-ink">{item.name}</span>
                       )}
-                      {item.description ? (
-                        <span className="text-xs text-zinc-500">
-                          {item.description}
-                        </span>
-                      ) : null}
+                      {/* Dotted leader stretches to fill the gap. */}
+                      <span className="leader h-3.5 min-w-4 flex-1" aria-hidden />
+                      <span className="num shrink-0 font-medium text-ink">
+                        {t('priceRsd', {amount: item.priceRsd})}
+                      </span>
                     </div>
-                    <span className="whitespace-nowrap tabular-nums text-zinc-700 dark:text-zinc-300">
-                      {t('priceRsd', {amount: item.priceRsd})}
-                    </span>
+                    {item.description ? (
+                      <span className="text-sm text-ink-muted">
+                        {item.description}
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -183,6 +262,6 @@ export default async function LocationProfile({params}: Params) {
           ))
         )}
       </section>
-    </main>
+    </PageShell>
   );
 }

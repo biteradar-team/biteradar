@@ -1,8 +1,14 @@
 import {getTranslations, setRequestLocale} from 'next-intl/server';
+import CityChips, {NoJsSubmit} from '@/src/components/filter-fields';
+import Filters from '@/src/components/filters';
+import {SearchIcon} from '@/src/components/icons';
 import JsonLd from '@/src/components/json-ld';
-import LocationCard from '@/src/components/location-card';
-import {CITY_NAMES, parseCity} from '@/src/lib/cities';
+import ResultsGrid from '@/src/components/results-grid';
+import {PageShell} from '@/src/components/shell';
+import {Link} from '@/src/i18n/navigation';
+import {parseCity} from '@/src/lib/cities';
 import {listingJsonLd} from '@/src/lib/jsonld';
+import {listDishesWithOffers} from '@/src/services/dishes';
 import {listPublishedLocations} from '@/src/services/locations';
 
 // Reading searchParams makes this route dynamic (server-rendered per request),
@@ -22,81 +28,99 @@ export default async function Home({params, searchParams}: Props) {
   const city = parseCity(sp.city);
   const openNow = Boolean(sp.openNow);
 
-  const results = await listPublishedLocations({q, city, openNow});
+  // The dish rail is the product's actual claim — "find the dish, not the
+  // restaurant" — so it goes above the results. `listDishesWithOffers` only
+  // returns dishes that some location actually prices, so the rail simply
+  // disappears rather than rendering empty chips.
+  const [results, dishes] = await Promise.all([
+    listPublishedLocations({q, city, openNow}),
+    listDishesWithOffers(),
+  ]);
+
   const hasFilter = Boolean(q || city || openNow);
 
-  // Segmented control options: "all" + the two launch cities.
-  const cityOptions: {value: string; label: string}[] = [
-    {value: '', label: t('allCities')},
-    {value: 'ns', label: CITY_NAMES.ns},
-    {value: 'bg', label: CITY_NAMES.bg},
-  ];
-
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10 text-black dark:text-zinc-100">
-      {results.length ? <JsonLd data={listingJsonLd('BiteRadar', results, locale)} /> : null}
-      <h1 className="max-w-2xl text-2xl font-semibold tracking-tight">
+    <PageShell>
+      {results.length ? (
+        <JsonLd data={listingJsonLd('BiteRadar', results, locale)} />
+      ) : null}
+
+      <h1 className="max-w-2xl text-4xl font-bold text-balance sm:text-5xl">
         {t('tagline')}
       </h1>
 
-      {/* URL-driven search — a plain GET form, no client JS. */}
-      <form method="get" className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder={t('searchPlaceholder')}
-            aria-label={t('searchPlaceholder')}
-            className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+      <Filters
+        className="flex flex-col gap-4"
+        busyLabel={t('filtering')}
+        fields={
+          <>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative flex-1">
+                <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-ink-muted" />
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={q}
+                  placeholder={t('searchPlaceholder')}
+                  aria-label={t('searchPlaceholder')}
+                  className="w-full rounded-lg border border-line-strong bg-card py-3 pl-11 pr-4 text-[15px] text-ink placeholder:text-ink-muted"
+                />
+              </div>
+              <NoJsSubmit />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <CityChips selected={city} />
+
+              <label className="ml-auto cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="openNow"
+                  defaultChecked={openNow}
+                  className="peer sr-only"
+                />
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-line-strong px-3.5 py-1.5 text-sm text-ink-muted transition-colors hover:border-ink-muted hover:text-ink peer-checked:border-open peer-checked:bg-open-tint peer-checked:font-medium peer-checked:text-open peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+                  <span className="size-1.5 rounded-full bg-current" aria-hidden />
+                  {t('openNow')}
+                </span>
+              </label>
+            </div>
+
+            {dishes.length ? (
+              <div className="flex flex-col gap-2 border-t border-line pt-4">
+                <h2 className="font-expanded text-[11px] font-semibold uppercase text-ink-muted">
+                  {t('popularDishes')}
+                </h2>
+                {/* Scrolls sideways on narrow screens rather than wrapping into
+                    a tall block that pushes the results off-screen. */}
+                <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+                  {dishes.map((dish) => (
+                    <Link
+                      key={dish.slug}
+                      href={`/jelo/${dish.slug}`}
+                      className="whitespace-nowrap rounded-full bg-raised px-3.5 py-1.5 text-sm text-ink transition-colors hover:bg-paprika hover:text-white"
+                    >
+                      {dish.nameSr}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {results.length ? (
+            <p className="text-sm text-ink-muted">
+              {t('resultsCount', {count: results.length})}
+            </p>
+          ) : null}
+          <ResultsGrid
+            locations={results}
+            empty={hasFilter ? t('noResults') : t('resultsNone')}
           />
-          <button
-            type="submit"
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-300"
-          >
-            {t('search')}
-          </button>
         </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {cityOptions.map((opt) => (
-            <label key={opt.value || 'all'} className="cursor-pointer">
-              <input
-                type="radio"
-                name="city"
-                value={opt.value}
-                defaultChecked={(city ?? '') === opt.value}
-                className="peer sr-only"
-              />
-              <span className="inline-block rounded-full border border-zinc-300 px-3 py-1 text-sm text-zinc-700 peer-checked:border-black peer-checked:bg-black peer-checked:text-white dark:border-zinc-700 dark:text-zinc-300 dark:peer-checked:border-zinc-100 dark:peer-checked:bg-zinc-100 dark:peer-checked:text-black">
-                {opt.label}
-              </span>
-            </label>
-          ))}
-
-          <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              name="openNow"
-              defaultChecked={openNow}
-              className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-600"
-            />
-            {t('openNow')}
-          </label>
-        </div>
-      </form>
-
-      {results.length === 0 ? (
-        <p className="text-sm text-zinc-500">
-          {hasFilter ? t('noResults') : t('resultsNone')}
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {results.map((loc) => (
-            <LocationCard key={loc.slug} loc={loc} />
-          ))}
-        </div>
-      )}
-    </main>
+      </Filters>
+    </PageShell>
   );
 }
