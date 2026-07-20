@@ -10,6 +10,9 @@
     "footerTagline": "Find the dish, not just the restaurant.",
     "footerCities": "Cities",
     "footerBrowse": "Browse",
+    "footerLegal": "Legal",
+    "privacy": "Privacy",
+    "terms": "Terms of Use",
     "footerNote": "Prices and opening hours are entered by people and can go stale. Check with the venue."
   },
   "Home": {
@@ -101,5 +104,69 @@
     "heading": "Page not found",
     "intro": "The link may be out of date, or the location was removed.",
     "backHome": "Back to search"
+  },
+  "Privacy": {
+    "title": "Privacy Policy",
+    "metaDescription": "What data BiteRadar collects and how it is used — no accounts, no tracking cookies.",
+    "intro": "BiteRadar is a free service with no accounts. We collect the bare minimum — just enough to see what people search for and to improve our data.",
+    "updated": "Last updated: 21 July 2026",
+    "sections": [
+      {
+        "h": "What we collect",
+        "p": "We use Vercel Analytics, which measures visits without cookies and without personal data. We record page views and a few anonymous events: which words are searched, when a search returns nothing, and when a location is opened from the results. We never ask for a name, email or account, and we cannot tie these events to any individual."
+      },
+      {
+        "h": "Why we collect it",
+        "p": "The only goal is to improve our data and search. If many people look for something that is not in the database, that tells us what to add next."
+      },
+      {
+        "h": "Cookies",
+        "p": "We use no tracking or advertising cookies. The only thing stored locally on your device is your light or dark theme choice — it never leaves your browser."
+      },
+      {
+        "h": "Sharing data",
+        "p": "We do not sell or hand over data to third parties for marketing. The anonymous analytics is processed on our behalf by Vercel, our hosting provider."
+      },
+      {
+        "h": "Your rights",
+        "p": "Because we keep no accounts and no personal data, there is no profile to delete or export. For any privacy question, feel free to write to us."
+      },
+      {
+        "h": "Contact",
+        "p": "support.biteradar@gmail.com"
+      }
+    ]
+  },
+  "Terms": {
+    "title": "Terms of Use",
+    "metaDescription": "BiteRadar terms of use — an informational service, data as a guide, use at your own risk.",
+    "intro": "Short and plain terms. By using the site you accept what is described below.",
+    "updated": "Last updated: 21 July 2026",
+    "sections": [
+      {
+        "h": "About the service",
+        "p": "BiteRadar is a free informational service for finding dishes, venues and prices in Serbia. It is not a booking or ordering service and does not act as an intermediary between you and a venue."
+      },
+      {
+        "h": "Accuracy of data",
+        "p": "Prices, opening hours and menus are entered by people and can go stale or be wrong. Treat them as a guide and check with the venue itself before relying on them. You can report an inaccuracy at support.biteradar@gmail.com."
+      },
+      {
+        "h": "Use at your own risk",
+        "p": "We work to keep the data accurate, but we do not guarantee its accuracy, completeness or the continuous availability of the site. We are not liable for any loss arising from relying on the information shown."
+      },
+      {
+        "h": "Content and ownership",
+        "p": "The site design, texts and the BiteRadar name belong to us. Venue names, logos and details belong to their owners and are shown for informational purposes."
+      },
+      {
+        "h": "Changes to these terms",
+        "p": "We may update these terms from time to time. Continuing to use the site after a change means you accept the new terms."
+      },
+      {
+        "h": "Contact",
+        "p": "support.biteradar@gmail.com"
+      }
+    ]
   }
 }
