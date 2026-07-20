@@ -339,6 +339,52 @@ OpenSearch: tek kada merenja pokažu da Postgres ne može (v1 kriterijumi važe)
 
 ---
 
+## 10.5. Dizajn i vizuelni identitet (pravac USVOJEN 19. jul 2026.)
+
+Do sada je javni sajt namerno bio bez identiteta (Tailwind default zinc/black,
+Geist, obične kartice) — funkcionalno, ali „unstyled Next.js" izgled. Sledeći
+korak (PRE stepa 7) je **pun redizajn javnog sajta**: produkcijski poliran,
+performantan, na nivou Glovo / Wolt / Instagram / YouTube.
+
+**Ličnost:** Maps-like osnova (brzo, čisto, data-first, poverljivo — to je i
+bila polazna ideja: „Google Maps za hranu"), ali **modernije i food-forward** —
+fotografije u prvom planu, topliji osećaj. Kombinacija sve tri, ali težište na
+Maps strani.
+
+**Paleta (predlog — tim nije „kreativni tip", bira se ovde; menja se ako se ne
+svidi):**
+- **Brend/primarna:** topla koralno-crvena „paprika" (evocira roštilj/papriku —
+  suptilan lokalni food nod bez folklora; ujedno prirodna boja map-pina, vezuje
+  se za „radar/pin" identitet).
+- **Ink:** skoro-crna, topli neutral. **Površina:** topla off-white. Oba u
+  light + dark modu.
+- **Zeleno:** rezervisano isključivo za „otvoreno sada" / pozitivna stanja (već
+  u upotrebi).
+- Finalne hex vrednosti + WCAG AA kontrast fiksiraju se u implementaciji
+  (koristiti dataviz/palette validator).
+
+**Tipografija:** čist grotesk za UI/telo (Geist/Inter — OBAVEZNO latin-ext za
+đ/ć/č/š/ž); karakterniji display face za naslove, self-hosted preko `next/font`.
+
+**Sistem:** pravi header (brend/logo, pretraga, kategorije/gradovi, jezik-switch)
++ footer; polirane kartice s fotografijom u prvom planu; konzistentna
+spacing/type skala; light + dark. Sve javne strane (home, profil, grad,
+jelo/jela, kuhinja/kuhinje). Admin ostaje funkcionalan (nije prioritet dizajna).
+
+**Interaktivnost (korisnički zahtev, USVOJENO):** filteri — grad (NS/BG),
+„otvoreno sada", kuhinja — primenjuju se **ODMAH na promenu, bez „Pretraži"
+dugmeta**. URL-driven state ostaje (SEO + shareable), ali se ažurira klijentski
+(`useRouter`/`useSearchParams`), s debounce-om za tekstualnu pretragu i
+`useTransition` za gladak pending state (bez reload-treptaja). Zadržati
+progressive enhancement (GET-form fallback radi i bez JS).
+
+**Performanse/moderno:** `next/image` za fotografije (dodati `remotePatterns` za
+Supabase Storage host — do sada odloženo), loading skeletons, glatke tranzicije
+(razmotriti View Transitions API), lazy-load.
+
+**Granice:** čisto prezentacioni + interakcioni sloj. NE menja postojeće rute,
+URL-ove ni data model (step 6 je gotov i ostaje). Radi se PRE stepa 7.
+
 ## 11. Observability i testiranje (lite verzija)
 
 **USVOJENO**

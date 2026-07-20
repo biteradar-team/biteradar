@@ -1,26 +1,214 @@
 @import "tailwindcss";
 
+/*
+  BiteRadar design tokens.
+
+  Two things to know before editing:
+
+  1. DARK IS THE DEFAULT. `:root` holds the dark values; `[data-theme='light']`
+     overrides them. We deliberately do NOT follow `prefers-color-scheme` — the
+     site is dark unless the user picks light in the header toggle.
+
+  2. NEVER write a `dark:` variant in a component again. Every colour below flips
+     with the theme, so `bg-card text-ink` is already correct in both modes.
+     If you find yourself typing `dark:bg-zinc-900`, a token is missing — add it
+     here instead.
+
+  Contrast: every pair was checked against WCAG AA (4.5:1 for text, 3:1 for
+  interactive borders per WCAG 1.4.11). The ratios are noted so a future change
+  can be re-checked rather than guessed at. This matters — three values in the
+  first draft of this palette looked fine and silently failed.
+*/
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ---- Dark (default) ---- */
+  --surface: #141110; /* warm near-black page background */
+  --card: #1e1a18;
+  --raised: #282320; /* hover / inset panels */
+
+  --ink: #f5f0ec; /* 16.61:1 on surface */
+  --ink-muted: #a69c95; /* 6.42:1 on card */
+
+  --line: #332d29; /* hairline dividers — DECORATIVE ONLY */
+  --line-strong: #706963; /* inputs, chips, anything clickable — 3.20:1 */
+
+  --paprika: #d93b21; /* brand. White text on it = 4.57:1 */
+  --paprika-accent: #ff7a5c; /* links + icons — 6.73:1 on card */
+  --paprika-tint: #2b1712;
+
+  --open: #5dd39e; /* reserved for "otvoreno sada" and nothing else */
+  --open-tint: #0e2a1d;
+
+  --warn: #e8b268; /* cash-only */
+  --warn-tint: #33220c;
+
+  --ring: #ff7a5c; /* focus — 7.33:1 on surface */
+
+  --scrim: rgb(20 17 16 / 0.72); /* photo overlay, matches --surface */
+
+  color-scheme: dark;
 }
 
+:root[data-theme="light"] {
+  --surface: #f7f4f1; /* warm off-white canvas */
+  --card: #ffffff; /* cards stay pure white — this is the "Maps" read */
+  --raised: #f0ebe6;
+
+  --ink: #1a1512; /* 16.52:1 on surface */
+  --ink-muted: #6b615b; /* 5.50:1 on surface */
+
+  --line: #e4dbd3;
+  --line-strong: #989088; /* 3.14:1 on white */
+
+  --paprika: #d93b21; /* SAME hex in both themes — see note below */
+  --paprika-accent: #b0301a; /* 6.40:1 on card */
+  --paprika-tint: #ffede8;
+
+  --open: #0e7a4b;
+  --open-tint: #e4f3eb;
+
+  --warn: #8a4b00;
+  --warn-tint: #fdf0dc;
+
+  --ring: #d93b21; /* 4.17:1 on light surface; #ff7a5c only managed 2.34 */
+
+  --scrim: rgb(26 21 18 / 0.66);
+
+  color-scheme: light;
+}
+
+/*
+  Why --paprika is identical in both themes: on dark we first tried dark ink on
+  paprika, which measured 4.11:1 and fails AA. White on #d93b21 is 4.57:1 and
+  passes on both surfaces, so buttons and selected chips are always
+  white-on-paprika. One colour, one text colour, no theme branch.
+*/
+
+/*
+  `inline` matters here: it makes utilities compile to `var(--surface)` directly
+  instead of copying the value at build time, which is what lets the theme flip
+  at runtime.
+*/
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-paprika: var(--paprika);
+  --color-paprika-accent: var(--paprika-accent);
+  --color-paprika-tint: var(--paprika-tint);
+  --color-open: var(--open);
+  --color-open-tint: var(--open-tint);
+  --color-warn: var(--warn);
+  --color-warn-tint: var(--warn-tint);
+  --color-ring: var(--ring);
+  --color-scrim: var(--scrim);
+
+  /* Geist was already loaded but never rendered — a stray `body { font-family:
+     Arial }` used to override it. Archivo is the display face (variable width). */
   --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-archivo);
   --font-mono: var(--font-geist-mono);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
+  /*
+    Headings use Archivo semi-condensed. The width axis is where this design gets
+    its character, so it's set once here rather than repeated per component.
+  */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+    font-variation-settings: "wdth" 92;
+    letter-spacing: -0.02em;
+  }
+
+  /* One focus style for the whole site. Keyboard users get a visible ring in
+     both themes; mouse users don't (`:focus-visible`, not `:focus`). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--paprika);
+    color: #fff;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* Archivo expanded — the wordmark and eyebrow labels. */
+  .font-expanded {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+    font-variation-settings: "wdth" 112;
+    letter-spacing: 0.06em;
+  }
+
+  /* Prices and opening hours. Tabular so digits form a scannable column —
+     this is what makes the site read data-first rather than editorial. */
+  .num {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /*
+    Show one thing in light mode, another in dark. Used by the theme toggle so it
+    can swap its icon and its screen-reader label with pure CSS — that keeps the
+    button stateless (no useState/useEffect), which means no hydration mismatch
+    and no flash of the wrong icon on load.
+  */
+  .theme-dark-only {
+    display: revert;
+  }
+  .theme-light-only {
+    display: none;
+  }
+  :root[data-theme="light"] .theme-dark-only {
+    display: none;
+  }
+  :root[data-theme="light"] .theme-light-only {
+    display: revert;
+  }
+
+  /* Menu rows: name ······ price. The leader is a repeating dotted background on
+     a flex spacer, so it stretches to fill whatever gap is left. */
+  .leader {
+    background-image: radial-gradient(
+      circle,
+      var(--line-strong) 1px,
+      transparent 1px
+    );
+    background-position: bottom;
+    background-size: 6px 6px;
+    background-repeat: repeat-x;
+  }
+}
+
+/* Respect the OS "reduce motion" setting — accessibility floor, not optional. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

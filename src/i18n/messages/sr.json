@@ -1,4 +1,17 @@
 {
+  "Nav": {
+    "brand": "BiteRadar",
+    "dishes": "Jela",
+    "categories": "Kategorije",
+    "skipToContent": "Preskoči na sadržaj",
+    "switchLanguage": "Prebaci na engleski",
+    "themeToLight": "Uključi svetlu temu",
+    "themeToDark": "Uključi tamnu temu",
+    "footerTagline": "Pronađi jelo, ne samo restoran.",
+    "footerCities": "Gradovi",
+    "footerBrowse": "Istraži",
+    "footerNote": "Cene i radno vreme unose ljudi i mogu da zastare. Proveri kod lokala."
+  },
   "Home": {
     "tagline": "Google Maps za hranu — pronađi jelo, ne samo restoran.",
     "searchPlaceholder": "Pretraži jela i restorane…",
@@ -6,12 +19,17 @@
     "allCities": "Svi gradovi",
     "openNow": "Otvoreno sada",
     "noResults": "Nema rezultata. Probaj drugačiju pretragu.",
-    "resultsNone": "Još nema objavljenih lokala."
+    "resultsNone": "Još nema objavljenih lokala.",
+    "resultsCount": "{count, plural, one {# lokal} few {# lokala} other {# lokala}}",
+    "clearFilters": "Poništi filtere",
+    "filtering": "Učitavanje rezultata…",
+    "popularDishes": "Popularna jela",
+    "noPhoto": "Nema fotografije"
   },
   "City": {
     "heading": "Restorani i lokali u {city}",
     "intro": "Pregledaj lokale u {city} — meni sa cenama, radno vreme i fotografije.",
-    "backToSearch": "← Pretraga"
+    "backToSearch": "Pretraga"
   },
   "Dishes": {
     "heading": "Jela",
@@ -21,7 +39,9 @@
   "Dish": {
     "intro": "Cene za {dish} po lokalima — najjeftinije prvo.",
     "noOffers": "Nijedan lokal još nema {dish} u meniju.",
-    "backToDishes": "← Sva jela"
+    "backToDishes": "Sva jela",
+    "cheapest": "Najjeftinije",
+    "noPrice": "Cena nije uneta"
   },
   "Cuisines": {
     "heading": "Kategorije",
@@ -30,7 +50,7 @@
   },
   "Cuisine": {
     "intro": "Lokali sa kategorijom „{cuisine}“.",
-    "backToCuisines": "← Sve kategorije"
+    "backToCuisines": "Sve kategorije"
   },
   "Location": {
     "openingHours": "Radno vreme",
@@ -42,6 +62,8 @@
     "closed": "Zatvoreno",
     "priceRsd": "{amount, number} RSD",
     "noMenu": "Meni još nije unet.",
+    "comparePrices": "Uporedi cene",
+    "today": "Danas",
     "days": {
       "0": "Nedelja",
       "1": "Ponedeljak",
@@ -51,5 +73,10 @@
       "5": "Petak",
       "6": "Subota"
     }
+  },
+  "NotFound": {
+    "heading": "Stranica nije pronađena",
+    "intro": "Link je možda zastareo ili je lokal uklonjen.",
+    "backHome": "Nazad na pretragu"
   }
 }
