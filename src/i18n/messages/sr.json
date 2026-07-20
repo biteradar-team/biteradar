@@ -32,7 +32,9 @@
     "clearFilters": "Poništi filtere",
     "filtering": "Učitavanje rezultata…",
     "popularDishes": "Popularna jela",
-    "noPhoto": "Nema fotografije"
+    "noPhoto": "Nema fotografije",
+    "nearMe": "Blizu mene",
+    "nearMeError": "Nije moguće očitati lokaciju."
   },
   "City": {
     "heading": "Restorani i lokali u {city}",
@@ -63,6 +65,7 @@
   "Location": {
     "openingHours": "Radno vreme",
     "menu": "Meni",
+    "mapHeading": "Lokacija",
     "photos": "Fotografije",
     "cardsYes": "Prima kartice",
     "cardsNo": "Samo keš",

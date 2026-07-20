@@ -4,6 +4,7 @@ import {notFound} from 'next/navigation';
 import {getTranslations, setRequestLocale} from 'next-intl/server';
 import {ChevronRightIcon} from '@/src/components/icons';
 import JsonLd from '@/src/components/json-ld';
+import LocationsMap from '@/src/components/locations-map';
 import Pill from '@/src/components/pill';
 import {PageShell} from '@/src/components/shell';
 import {Link} from '@/src/i18n/navigation';
@@ -145,6 +146,24 @@ export default async function LocationProfile({params}: Params) {
           </p>
         ) : null}
       </div>
+
+      {/* Location map — one pin. Reuses the home map component; coords are always
+          present (geog is NOT NULL). Hidden when no MapTiler key is set. */}
+      <section className="flex flex-col gap-3">
+        <h2 className={sectionHeading}>{t('mapHeading')}</h2>
+        <LocationsMap
+          pins={[
+            {
+              slug: loc.slug,
+              name: loc.brand.name,
+              lat: loc.location.lat,
+              lng: loc.location.lng,
+            },
+          ]}
+          locale={locale}
+          className="h-64"
+        />
+      </section>
 
       {/* Remaining photos */}
       {restPhotos.length > 0 ? (

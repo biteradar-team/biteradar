@@ -56,6 +56,15 @@ export default function Filters({
       // Drop empties so "Svi gradovi" (value '') leaves a clean, shareable URL.
       if (typeof value === 'string' && value) params.set(key, value);
     }
+    // Carry „Blizu mene" coordinates forward. They're set imperatively by the
+    // geolocation button, not via a form field, so a plain FormData rebuild would
+    // drop them on the next chip toggle. Read from the live URL (not stale DOM),
+    // so clearing filters — which navigates to a coord-less URL — self-corrects.
+    const current = new URLSearchParams(window.location.search);
+    for (const key of ['lat', 'lng'] as const) {
+      const val = current.get(key);
+      if (val) params.set(key, val);
+    }
     const qs = params.toString();
     startTransition(() => {
       // `replace`, not `push` — otherwise every keystroke becomes a history

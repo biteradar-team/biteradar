@@ -32,7 +32,9 @@
     "clearFilters": "Clear filters",
     "filtering": "Loading results…",
     "popularDishes": "Popular dishes",
-    "noPhoto": "No photo"
+    "noPhoto": "No photo",
+    "nearMe": "Near me",
+    "nearMeError": "Couldn't read your location."
   },
   "City": {
     "heading": "Restaurants in {city}",
@@ -63,6 +65,7 @@
   "Location": {
     "openingHours": "Opening hours",
     "menu": "Menu",
+    "mapHeading": "Location",
     "photos": "Photos",
     "cardsYes": "Cards accepted",
     "cardsNo": "Cash only",

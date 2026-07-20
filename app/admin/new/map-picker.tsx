@@ -2,20 +2,13 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type {Map as MlMap, Marker} from 'maplibre-gl';
 import {useEffect, useRef, useState} from 'react';
+import {
+  CITY_CENTER,
+  MAPTILER_KEY as KEY,
+  MAPTILER_STYLE_URL as STYLE,
+} from '@/src/lib/maptiler';
 
 export type Coords = {lat: number; lng: number};
-
-// ponytail: the MapTiler style URL is the ONE provider-specific line — this
-// component IS the "provajder zamenljiv" adapter the blueprint asks for; swap it
-// here to change map providers. Public map key (NEXT_PUBLIC_), restrict by domain
-// in the MapTiler dashboard.
-const KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-const STYLE = `https://api.maptiler.com/maps/streets-v2/style.json?key=${KEY}`;
-
-const CITY_CENTER = {
-  ns: {lng: 19.8335, lat: 45.2671},
-  bg: {lng: 20.4573, lat: 44.7866},
-} as const;
 
 const inputCls =
   'w-full rounded border border-zinc-300 bg-white px-2 py-1.5 text-sm text-black dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100';

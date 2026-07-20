@@ -31,9 +31,12 @@ const nextConfig: NextConfig = {
   // it to cover MAX_BYTES (15 MB) in src/services/photos.ts, with headroom.
   experimental: {serverActions: {bodySizeLimit: '20mb'}},
 
-  // Baseline security response headers (defense-in-depth). No CSP yet: the admin
-  // map-picker loads MapTiler tiles/styles cross-origin, so a strict policy needs
-  // its own allowlist — deferred until that's worked out.
+  // Baseline security response headers (defense-in-depth). No CSP yet: MapLibre
+  // loads MapTiler tiles/styles cross-origin AND spins up blob: web workers, and
+  // as of step 7b the map is site-wide (home + profiles), not just /admin. A
+  // strict policy must therefore allowlist MapTiler (img-src + connect-src) and
+  // `worker-src blob:` GLOBALLY — get it wrong and the map silently dies.
+  // Deferred to its own hardening task rather than bolted on here.
   async headers() {
     return [
       {
