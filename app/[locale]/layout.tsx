@@ -1,6 +1,7 @@
 import type {Metadata} from "next";
 import {Archivo, Geist, Geist_Mono} from "next/font/google";
 import {notFound} from "next/navigation";
+import ThemeScript from "@/src/components/theme-script";
 import {Analytics} from "@vercel/analytics/next";
 import {hasLocale, NextIntlClientProvider} from "next-intl";
 import {setRequestLocale} from "next-intl/server";
@@ -37,7 +38,8 @@ const archivo = Archivo({
   dark flash. It has to be a blocking inline script in <head>: anything deferred
   (or done in an effect) runs after the browser has already painted.
 
-  Dark is the default when nothing is stored.
+  Rendered through <ThemeScript>, which emits the raw <script> only during SSR —
+  see that file for why. Dark is the default when nothing is stored.
 */
 const THEME_SCRIPT = `try{document.documentElement.dataset.theme=localStorage.getItem('theme')==='light'?'light':'dark'}catch(e){document.documentElement.dataset.theme='dark'}`;
 
@@ -88,7 +90,7 @@ export default async function LocaleLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} h-full antialiased`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{__html: THEME_SCRIPT}} />
+        <ThemeScript code={THEME_SCRIPT} />
       </head>
       <body className="flex min-h-full flex-col">
         {/*
