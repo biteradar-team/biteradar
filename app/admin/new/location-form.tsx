@@ -19,6 +19,13 @@ const DAYS = [
 ];
 
 type HourRow = {closed: boolean; opensAt: string; closesAt: string};
+type ExceptionRow = {
+  date: string;
+  closed: boolean;
+  opensAt: string;
+  closesAt: string;
+  note: string;
+};
 type MenuRow = {
   name: string;
   sectionName: string;
@@ -71,6 +78,9 @@ export default function LocationForm({
         : {closed: true, opensAt: '', closesAt: ''};
     });
   });
+  const [exceptions, setExceptions] = useState<ExceptionRow[]>(
+    initial?.exceptions ?? [],
+  );
   const [menu, setMenu] = useState<MenuRow[]>(
     initial && initial.menu.length
       ? initial.menu.map((m) => ({...m}))
@@ -79,6 +89,9 @@ export default function LocationForm({
 
   function setHour(i: number, patch: Partial<HourRow>) {
     setHours((rows) => rows.map((r, j) => (j === i ? {...r, ...patch} : r)));
+  }
+  function setException(i: number, patch: Partial<ExceptionRow>) {
+    setExceptions((rows) => rows.map((r, j) => (j === i ? {...r, ...patch} : r)));
   }
   function setItem(i: number, patch: Partial<MenuRow>) {
     setMenu((rows) => rows.map((r, j) => (j === i ? {...r, ...patch} : r)));
@@ -97,6 +110,7 @@ export default function LocationForm({
         status,
       },
       hours: hours.map((h, day) => ({day, ...h})),
+      exceptions,
       menu,
     });
   }
@@ -220,6 +234,82 @@ export default function LocationForm({
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Exceptions (holidays / special days) */}
+      <section className="flex flex-col gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">
+            Izuzeci (praznici / posebni dani)
+          </h2>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Nadjačavaju redovno radno vreme za taj datum — npr. zatvoreno na
+            praznik ili skraćeno radno vreme.
+          </p>
+        </div>
+        {exceptions.map((row, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-3 text-sm">
+            <input
+              type="date"
+              className={`${input} w-40`}
+              value={row.date}
+              onChange={(e) => setException(i, {date: e.target.value})}
+              required
+            />
+            <label className="flex items-center gap-1.5 text-xs">
+              <input
+                type="checkbox"
+                checked={row.closed}
+                onChange={(e) => setException(i, {closed: e.target.checked})}
+              />
+              Zatvoreno
+            </label>
+            {!row.closed && (
+              <>
+                <input
+                  type="time"
+                  className={`${input} w-32`}
+                  value={row.opensAt}
+                  onChange={(e) => setException(i, {opensAt: e.target.value})}
+                />
+                <span className="text-zinc-500">–</span>
+                <input
+                  type="time"
+                  className={`${input} w-32`}
+                  value={row.closesAt}
+                  onChange={(e) => setException(i, {closesAt: e.target.value})}
+                />
+              </>
+            )}
+            <input
+              className={`${input} min-w-40 flex-1`}
+              placeholder="Napomena (opciono)"
+              value={row.note}
+              onChange={(e) => setException(i, {note: e.target.value})}
+            />
+            <button
+              type="button"
+              onClick={() =>
+                setExceptions((x) => x.filter((_, j) => j !== i))
+              }
+              className="rounded border border-zinc-300 px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            >
+              Ukloni
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() =>
+            setExceptions((x) => [
+              ...x,
+              {date: '', closed: true, opensAt: '', closesAt: '', note: ''},
+            ])
+          }
+          className="self-start rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+        >
+          + Dodaj izuzetak
+        </button>
       </section>
 
       {/* Menu */}

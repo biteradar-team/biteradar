@@ -31,6 +31,16 @@ const hourRow = z.object({
   closesAt: z.string().optional(),
 });
 
+// A holiday / special-day override for one calendar date. `closed` days carry no
+// times; open days need both. Shape matches schema.opening_hour_exceptions.
+const exceptionRow = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Unesite datum (GGGG-MM-DD)'),
+  closed: z.boolean(),
+  opensAt: z.string().optional(),
+  closesAt: z.string().optional(),
+  note: z.string().trim().optional(),
+});
+
 const menuItem = z.object({
   name: z.string().trim().min(1, 'Naziv stavke je obavezan'),
   sectionName: z.string().trim().optional(),
@@ -78,6 +88,24 @@ export const LocationInputSchema = z.object({
       });
       // Past-midnight closes (closesAt < opensAt) are allowed — no check.
     }),
+  // Holiday / special-day overrides. Absent in older payloads → empty.
+  exceptions: z
+    .array(exceptionRow)
+    .default([])
+    .superRefine((rows, ctx) => {
+      rows.forEach((row, i) => {
+        if (row.closed) return;
+        for (const field of ['opensAt', 'closesAt'] as const) {
+          if (!row[field] || !HHMM.test(row[field]!)) {
+            ctx.addIssue({
+              code: 'custom',
+              path: [i, field],
+              message: 'Unesite vreme (HH:MM)',
+            });
+          }
+        }
+      });
+    }),
   menu: z.array(menuItem),
 });
 
@@ -100,5 +128,12 @@ export type LocationEditData = {
     status: 'draft' | 'published';
   };
   hours: {day: number; opensAt: string; closesAt: string}[];
+  exceptions: {
+    date: string;
+    closed: boolean;
+    opensAt: string;
+    closesAt: string;
+    note: string;
+  }[];
   menu: {name: string; sectionName: string; description: string; priceRsd: string}[];
 };

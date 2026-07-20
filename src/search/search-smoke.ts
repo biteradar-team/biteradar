@@ -139,6 +139,80 @@ async function main() {
     await mkHours(cheap, '18:00', '02:00');
     await mkHours(pricey, '10:00', '23:30');
 
+    // 12. Holiday / special-day override — mirrors the EXCEPTION branch of
+    // openNowExpr in listPublishedLocations(). Run as owner (writes + reads)
+    // before the anon switch. `pub` is open 08:00–17:00 every day, so at the
+    // 14:30 reference it is open by the regular schedule; a same-day exception
+    // must override that. `with n` mirrors the CTE the production query uses.
+    const openNowAt = async () => {
+      const [r] = await tx`
+        with n as (select timestamp '2026-07-15 14:30' as ts)
+        select (case
+          when exists (
+            select 1 from opening_hour_exceptions e
+            where e.location_id = ${pub.id} and e.date = n.ts::date
+          ) then exists (
+            select 1 from opening_hour_exceptions e
+            where e.location_id = ${pub.id} and e.date = n.ts::date
+              and e.closed = false
+              and e.opens_at is not null and e.closes_at is not null
+              and (
+                (e.closes_at > e.opens_at
+                  and n.ts::time >= e.opens_at and n.ts::time < e.closes_at)
+                or (e.closes_at <= e.opens_at and n.ts::time >= e.opens_at)
+              )
+          ) else exists (
+            select 1 from opening_hours oh
+            where oh.location_id = ${pub.id} and (
+              (oh.closes_at > oh.opens_at
+                and oh.day_of_week = extract(dow from n.ts)::int
+                and n.ts::time >= oh.opens_at and n.ts::time < oh.closes_at)
+              or (oh.closes_at <= oh.opens_at and (
+                (oh.day_of_week = extract(dow from n.ts)::int and n.ts::time >= oh.opens_at)
+                or (oh.day_of_week = (extract(dow from n.ts)::int + 6) % 7 and n.ts::time < oh.closes_at)
+              ))
+            )
+          )
+        end) as open
+        from n`;
+      return r.open as boolean;
+    };
+
+    assert.equal(
+      await openNowAt(),
+      true,
+      'baseline: open by the regular 08:00–17:00 schedule, no exception',
+    );
+
+    const [exc] = await tx`
+      insert into opening_hour_exceptions (location_id, date, closed)
+      values (${pub.id}, ${'2026-07-15'}, true) returning id`;
+    assert.equal(
+      await openNowAt(),
+      false,
+      'a closed holiday exception overrides the regular schedule → closed',
+    );
+
+    await tx`update opening_hour_exceptions
+             set closed = false, opens_at = '18:00', closes_at = '22:00'
+             where id = ${exc.id}`;
+    assert.equal(
+      await openNowAt(),
+      false,
+      'special hours that exclude the reference time → closed',
+    );
+
+    await tx`update opening_hour_exceptions
+             set opens_at = '12:00', closes_at = '16:00' where id = ${exc.id}`;
+    assert.equal(
+      await openNowAt(),
+      true,
+      'special hours that include the reference time → open',
+    );
+
+    // Clean the exception back out so it can't skew later cases.
+    await tx`delete from opening_hour_exceptions where id = ${exc.id}`;
+
     // --- Become the public anon role ---
     await tx`set local role anon`;
 
