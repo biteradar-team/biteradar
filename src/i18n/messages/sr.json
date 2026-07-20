@@ -10,6 +10,9 @@
     "footerTagline": "Pronađi jelo, ne samo restoran.",
     "footerCities": "Gradovi",
     "footerBrowse": "Istraži",
+    "footerLegal": "Pravno",
+    "privacy": "Privatnost",
+    "terms": "Uslovi korišćenja",
     "footerNote": "Cene i radno vreme unose ljudi i mogu da zastare. Proveri kod lokala."
   },
   "Home": {
@@ -101,5 +104,69 @@
     "heading": "Stranica nije pronađena",
     "intro": "Link je možda zastareo ili je lokal uklonjen.",
     "backHome": "Nazad na pretragu"
+  },
+  "Privacy": {
+    "title": "Politika privatnosti",
+    "metaDescription": "Koje podatke BiteRadar prikuplja i kako ih koristi — bez naloga, bez kolačića za praćenje.",
+    "intro": "BiteRadar je besplatan servis bez naloga. Prikupljamo najmanje moguće — dovoljno da vidimo šta ljudi traže i da dopunimo podatke.",
+    "updated": "Poslednje ažuriranje: 21. jul 2026.",
+    "sections": [
+      {
+        "h": "Koje podatke prikupljamo",
+        "p": "Koristimo Vercel Analytics, koji meri posete bez kolačića i bez ličnih podataka. Beležimo preglede stranica i nekoliko anonimnih događaja: koje reči se pretražuju, kada pretraga ne da rezultat, i kada se otvori lokal iz rezultata. Ne tražimo ime, imejl ni nalog i ne možemo da povežemo ove događaje sa konkretnom osobom."
+      },
+      {
+        "h": "Zašto ih prikupljamo",
+        "p": "Jedini cilj je da poboljšamo podatke i pretragu. Ako mnogo ljudi traži nešto što ne postoji u bazi, to nam govori šta sledeće da dodamo."
+      },
+      {
+        "h": "Kolačići",
+        "p": "Ne koristimo kolačiće za praćenje ni reklame. Jedino što čuvamo lokalno na tvom uređaju jeste izbor svetle ili tamne teme — to nikada ne napušta tvoj pregledač."
+      },
+      {
+        "h": "Deljenje podataka",
+        "p": "Ne prodajemo i ne ustupamo podatke trećim licima u marketinške svrhe. Anonimnu analitiku u naše ime obrađuje Vercel kao naš pružalac usluge hostinga."
+      },
+      {
+        "h": "Tvoja prava",
+        "p": "Pošto ne držimo naloge ni lične podatke, nema profila koji bi se brisao ili preuzimao. Za svako pitanje o privatnosti slobodno nam piši."
+      },
+      {
+        "h": "Kontakt",
+        "p": "support.biteradar@gmail.com"
+      }
+    ]
+  },
+  "Terms": {
+    "title": "Uslovi korišćenja",
+    "metaDescription": "Uslovi korišćenja BiteRadar-a — informativni servis, podaci kao orijentir, korišćenje na sopstvenu odgovornost.",
+    "intro": "Kratki i jasni uslovi. Korišćenjem sajta prihvataš ono što je opisano ispod.",
+    "updated": "Poslednje ažuriranje: 21. jul 2026.",
+    "sections": [
+      {
+        "h": "O usluzi",
+        "p": "BiteRadar je besplatan informativni servis za pronalaženje jela, lokala i cena u Srbiji. Nije servis za rezervacije ni naručivanje i ne posreduje između tebe i lokala."
+      },
+      {
+        "h": "Tačnost podataka",
+        "p": "Cene, radno vreme i meniji unose ljudi i mogu da zastare ili da budu netačni. Koristi ih kao orijentir i proveri kod samog lokala pre nego što se osloniš na njih. Netačan podatak možeš prijaviti na support.biteradar@gmail.com."
+      },
+      {
+        "h": "Korišćenje na sopstvenu odgovornost",
+        "p": "Trudimo se da podaci budu tačni, ali ne garantujemo njihovu tačnost, potpunost ni stalnu dostupnost sajta. Ne odgovaramo za štetu koja bi nastala oslanjanjem na prikazane podatke."
+      },
+      {
+        "h": "Sadržaj i vlasništvo",
+        "p": "Izgled sajta, tekstovi i ime BiteRadar pripadaju nama. Nazivi, logotipi i podaci o lokalima pripadaju njihovim vlasnicima i prikazani su u informativne svrhe."
+      },
+      {
+        "h": "Izmene uslova",
+        "p": "Uslove možemo povremeno ažurirati. Nastavak korišćenja sajta nakon izmene znači da prihvataš nove uslove."
+      },
+      {
+        "h": "Kontakt",
+        "p": "support.biteradar@gmail.com"
+      }
+    ]
   }
 }

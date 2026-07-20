@@ -40,6 +40,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...cuisines.map((c) => ({path: `/kuhinja/${c.slug}`})),
     {path: '/guides'},
     ...GUIDES.map((g) => ({path: `/guides/${g.slug}`})),
+    {path: '/privatnost'},
+    {path: '/uslovi'},
     ...slugs.map((s) => ({path: `/lokal/${s.slug}`, lastModified: s.updatedAt})),
   ];
 

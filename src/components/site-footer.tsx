@@ -17,7 +17,7 @@ export default async function SiteFooter() {
 
   return (
     <footer className="mt-16 border-t border-line bg-card">
-      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:grid-cols-3 sm:px-6">
+      <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1.5 text-ink">
             <PinIcon className="size-5 text-paprika" />
@@ -45,6 +45,16 @@ export default async function SiteFooter() {
           </Link>
           <Link href="/grad/bg" className={link}>
             {CITY_NAMES.bg}
+          </Link>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h2 className={heading}>{t('footerLegal')}</h2>
+          <Link href="/privatnost" className={link}>
+            {t('privacy')}
+          </Link>
+          <Link href="/uslovi" className={link}>
+            {t('terms')}
           </Link>
         </div>
       </div>
