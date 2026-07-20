@@ -6,6 +6,7 @@ import {
   dishes,
   menuItemPrices,
   menuItems,
+  openingHourExceptions,
   openingHours,
   restaurantCuisines,
   restaurantLocations,
@@ -122,6 +123,9 @@ export async function updateLocation(
     // acceptable pre-launch (no meaningful history yet). Upgrade path: diff menu
     // rows and only append a new price when the amount actually changed.
     await tx.delete(openingHours).where(eq(openingHours.locationId, locationId));
+    await tx
+      .delete(openingHourExceptions)
+      .where(eq(openingHourExceptions.locationId, locationId));
     await tx.delete(menuItems).where(eq(menuItems.locationId, locationId));
     await insertChildren(tx, locationId, loc.restaurantId, data);
   });
@@ -164,6 +168,18 @@ export async function getLocationForEdit(
     .from(openingHours)
     .where(eq(openingHours.locationId, locationId));
 
+  const exceptions = await db
+    .select({
+      date: openingHourExceptions.date,
+      closed: openingHourExceptions.closed,
+      opensAt: openingHourExceptions.opensAt,
+      closesAt: openingHourExceptions.closesAt,
+      note: openingHourExceptions.note,
+    })
+    .from(openingHourExceptions)
+    .where(eq(openingHourExceptions.locationId, locationId))
+    .orderBy(openingHourExceptions.date);
+
   const menu = await db
     .select({
       name: menuItems.name,
@@ -197,6 +213,13 @@ export async function getLocationForEdit(
       day: h.day,
       opensAt: h.opensAt.slice(0, 5),
       closesAt: h.closesAt.slice(0, 5),
+    })),
+    exceptions: exceptions.map((e) => ({
+      date: e.date,
+      closed: e.closed,
+      opensAt: e.opensAt ? e.opensAt.slice(0, 5) : '',
+      closesAt: e.closesAt ? e.closesAt.slice(0, 5) : '',
+      note: e.note ?? '',
     })),
     menu: menu.map((m) => ({
       name: m.name,
@@ -410,18 +433,45 @@ export async function listPublishedLocations(
 
   // "open right now" as a reusable boolean expression (used in SELECT, and in
   // WHERE when the filter is on). `n.ts` is the Belgrade-local now() from the CTE.
-  const openNowExpr = sql`exists (
-    select 1 from opening_hours oh
-    where oh.location_id = l.id and (
-      (oh.closes_at > oh.opens_at
-        and oh.day_of_week = extract(dow from n.ts)::int
-        and n.ts::time >= oh.opens_at and n.ts::time < oh.closes_at)
-      or (oh.closes_at <= oh.opens_at and (
-        (oh.day_of_week = extract(dow from n.ts)::int and n.ts::time >= oh.opens_at)
-        or (oh.day_of_week = (extract(dow from n.ts)::int + 6) % 7 and n.ts::time < oh.closes_at)
-      ))
+  //
+  // A same-day holiday/special-day row in `opening_hour_exceptions` OVERRIDES the
+  // weekly schedule (blueprint §15/§16: open-now is wrong on holidays without
+  // this). If today has an exception, only that row decides open/closed; otherwise
+  // we fall back to the regular `opening_hours` below.
+  //
+  // ponytail: an exception governs its own calendar date's daytime only. A regular
+  // past-midnight span (or an exception's own past-midnight span) carrying INTO a
+  // holiday morning is treated as closed when that morning has a `closed`
+  // exception — which is the desired holiday semantics anyway. Upgrade path: model
+  // per-date carry-over if a real case ever needs the previous night to bleed in.
+  const openNowExpr = sql`case
+    when exists (
+      select 1 from opening_hour_exceptions e
+      where e.location_id = l.id and e.date = n.ts::date
+    ) then exists (
+      select 1 from opening_hour_exceptions e
+      where e.location_id = l.id and e.date = n.ts::date
+        and e.closed = false
+        and e.opens_at is not null and e.closes_at is not null
+        and (
+          (e.closes_at > e.opens_at
+            and n.ts::time >= e.opens_at and n.ts::time < e.closes_at)
+          or (e.closes_at <= e.opens_at and n.ts::time >= e.opens_at)
+        )
     )
-  )`;
+    else exists (
+      select 1 from opening_hours oh
+      where oh.location_id = l.id and (
+        (oh.closes_at > oh.opens_at
+          and oh.day_of_week = extract(dow from n.ts)::int
+          and n.ts::time >= oh.opens_at and n.ts::time < oh.closes_at)
+        or (oh.closes_at <= oh.opens_at and (
+          (oh.day_of_week = extract(dow from n.ts)::int and n.ts::time >= oh.opens_at)
+          or (oh.day_of_week = (extract(dow from n.ts)::int + 6) % 7 and n.ts::time < oh.closes_at)
+        ))
+      )
+    )
+  end`;
 
   // Price band from the location's AVERAGE current menu price (`pr` below).
   // Bucketed in SQL rather than in JS because the WHERE needs it too — an alias
@@ -558,6 +608,19 @@ async function insertChildren(
       closesAt: h.closesAt!,
     }));
   if (openRows.length) await tx.insert(openingHours).values(openRows);
+
+  // Holiday / special-day overrides. Closed days drop any times; the read path
+  // (`openNowExpr`) treats a closed exception as authoritative for that date.
+  const exceptionRows = data.exceptions.map((e) => ({
+    locationId,
+    date: e.date,
+    closed: e.closed,
+    opensAt: e.closed ? null : e.opensAt || null,
+    closesAt: e.closed ? null : e.closesAt || null,
+    note: e.note || null,
+  }));
+  if (exceptionRows.length)
+    await tx.insert(openingHourExceptions).values(exceptionRows);
 
   // Canonical-dish auto-link (blueprint §3.1): match each item's NAME to a
   // seeded dish so /jelo price pages work. Load candidates once per txn.
