@@ -37,6 +37,48 @@ function belgradeWeekday(): number {
   return DAY_INDEX[name] ?? -1;
 }
 
+/** Minutes since midnight, now, in the venue's timezone (Europe/Belgrade). */
+function belgradeMinutes(): number {
+  const hhmm = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Belgrade',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date());
+  return toMinutes(hhmm);
+}
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Is the venue open right now? Checks today's span, plus a span from *yesterday*
+ * that runs past midnight into today (e.g. Fri 18:00–01:00 is still open at
+ * 00:30 Sat). Not holiday-aware — that's a separate task (open-now PR); when it
+ * lands, replace this with the shared helper.
+ */
+function isOpenNow(
+  hours: {day: number; opensAt: string; closesAt: string}[],
+  weekday: number,
+  nowMin: number,
+): boolean {
+  const yesterday = (weekday + 6) % 7;
+  for (const h of hours) {
+    const open = toMinutes(h.opensAt);
+    const close = toMinutes(h.closesAt);
+    if (open <= close) {
+      if (h.day === weekday && nowMin >= open && nowMin < close) return true;
+    } else {
+      // Wraps midnight: open on its own day from `open`, and next day until `close`.
+      if (h.day === weekday && nowMin >= open) return true;
+      if (h.day === yesterday && nowMin < close) return true;
+    }
+  }
+  return false;
+}
+
 type Params = {params: Promise<{locale: string; slug: string}>};
 
 export async function generateMetadata({params}: Params): Promise<Metadata> {
@@ -69,6 +111,17 @@ export default async function LocationProfile({params}: Params) {
   const openByDay = new Map(loc.hours.map((h) => [h.day, h]));
   const cards = loc.location.acceptsCards;
   const today = belgradeWeekday();
+  const openNow = isOpenNow(loc.hours, today, belgradeMinutes());
+
+  // Price range from the menu's actual prices — the product is price comparison,
+  // so state the range up front. Skip any 0/placeholder rows.
+  const prices = loc.menu.map((m) => m.priceRsd).filter((p) => p > 0);
+  const priceRange = prices.length
+    ? {min: Math.min(...prices), max: Math.max(...prices)}
+    : null;
+
+  // Google Maps directions to the venue's coordinates (no dep, opens the app on mobile).
+  const directionsHref = `https://www.google.com/maps/dir/?api=1&destination=${loc.location.lat},${loc.location.lng}`;
 
   const [hero, ...restPhotos] = loc.photos;
 
@@ -101,7 +154,7 @@ export default async function LocationProfile({params}: Params) {
   );
 
   return (
-    <PageShell width="narrow">
+    <PageShell width="wide">
       <JsonLd data={restaurantJsonLd(loc, locale)} />
 
       {/* Header. With a photo the name sits over it; without one it falls back
@@ -134,171 +187,199 @@ export default async function LocationProfile({params}: Params) {
         </header>
       )}
 
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap gap-2">
-          {cards === 'yes' ? (
-            <Pill variant="neutral">{t('cardsYes')}</Pill>
-          ) : cards === 'no' ? (
-            <Pill variant="warn">{t('cardsNo')}</Pill>
-          ) : (
-            <Pill variant="neutral">{t('cardsUnknown')}</Pill>
-          )}
-          {loc.cuisines.map((c) => (
-            <Pill key={c} variant="neutral">
-              {c}
-            </Pill>
-          ))}
-          <VerifiedBadge verifiedAt={loc.verifiedAt} locale={locale} />
+      {/* Two-column on desktop: the menu (the product) owns the main column;
+          the practical + visual stuff lives in a sticky sidebar. Collapses to a
+          single column below lg — menu first, then the sidebar content. */}
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="flex min-w-0 flex-col gap-8">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-2">
+              <Pill variant={openNow ? 'open' : 'warn'}>
+                {openNow ? t('openNow') : t('closedNow')}
+              </Pill>
+              {priceRange ? (
+                <Pill variant="brand">
+                  {t('priceRange', {min: priceRange.min, max: priceRange.max})}
+                </Pill>
+              ) : null}
+              {cards === 'yes' ? (
+                <Pill variant="neutral">{t('cardsYes')}</Pill>
+              ) : cards === 'no' ? (
+                <Pill variant="warn">{t('cardsNo')}</Pill>
+              ) : (
+                <Pill variant="neutral">{t('cardsUnknown')}</Pill>
+              )}
+              {loc.cuisines.map((c) => (
+                <Pill key={c} variant="neutral">
+                  {c}
+                </Pill>
+              ))}
+              <VerifiedBadge verifiedAt={loc.verifiedAt} locale={locale} />
+            </div>
+
+            {loc.brand.description ? (
+              <p className="max-w-prose text-[15px] text-ink-muted">
+                {loc.brand.description}
+              </p>
+            ) : null}
+          </div>
+
+          {/* Menu */}
+          <section className="flex flex-col gap-4">
+            <h2 className={sectionHeading}>{t('menu')}</h2>
+            {loc.menu.length === 0 ? (
+              <p className="text-sm text-ink-muted">{t('noMenu')}</p>
+            ) : (
+              [...sections.entries()].map(([section, items]) => (
+                <div key={section || '_'} className="flex flex-col gap-1">
+                  {section ? (
+                    <h3 className="text-base font-semibold text-ink">{section}</h3>
+                  ) : null}
+                  <ul className="flex flex-col">
+                    {items.map((item, i) => (
+                      <li
+                        key={i}
+                        className="flex flex-col gap-0.5 border-b border-line py-2.5 last:border-b-0"
+                      >
+                        <div className="flex items-baseline gap-2">
+                          {item.dishSlug ? (
+                            // The hook into price comparison: this dish exists on
+                            // other menus, so we can show what it costs elsewhere.
+                            <Link
+                              href={`/jelo/${item.dishSlug}`}
+                              className="group inline-flex items-baseline gap-0.5 text-ink hover:text-paprika-accent"
+                              title={t('comparePrices')}
+                            >
+                              {item.name}
+                              <ChevronRightIcon className="size-3.5 shrink-0 translate-y-0.5 text-paprika-accent" />
+                            </Link>
+                          ) : (
+                            <span className="text-ink">{item.name}</span>
+                          )}
+                          {/* Dotted leader stretches to fill the gap. */}
+                          <span className="leader h-3.5 min-w-4 flex-1" aria-hidden />
+                          <span className="num shrink-0 font-medium text-ink">
+                            {t('priceRsd', {amount: item.priceRsd})}
+                          </span>
+                        </div>
+                        {item.description ? (
+                          <span className="text-sm text-ink-muted">
+                            {item.description}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
+          </section>
         </div>
 
-        {loc.brand.description ? (
-          <p className="max-w-prose text-[15px] text-ink-muted">
-            {loc.brand.description}
-          </p>
-        ) : null}
-      </div>
+        {/* Sidebar — sticky on desktop so hours/map stay in view while the menu
+            scrolls. self-start stops the grid cell stretching and killing sticky. */}
+        <aside className="flex flex-col gap-8 lg:sticky lg:top-24 lg:self-start">
+          {/* Opening hours */}
+          <section className="flex flex-col gap-3">
+            <h2 className={sectionHeading}>{t('openingHours')}</h2>
+            <table className="w-full overflow-hidden rounded-lg border border-line text-sm">
+              <tbody>
+                {WEEK.map((day) => {
+                  const h = openByDay.get(day);
+                  const isToday = day === today;
+                  return (
+                    <tr
+                      key={day}
+                      className={`border-b border-line last:border-b-0 ${
+                        isToday ? 'bg-raised' : ''
+                      }`}
+                    >
+                      <td
+                        className={`px-3 py-2 ${isToday ? 'font-medium text-ink' : 'text-ink-muted'}`}
+                      >
+                        {t(`days.${day}`)}
+                        {isToday ? (
+                          <span className="ml-2 text-xs text-paprika-accent">
+                            {t('today')}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="num px-3 py-2 text-right">
+                        {h ? (
+                          <span className={isToday ? 'text-ink' : 'text-ink-muted'}>
+                            {h.opensAt}–{h.closesAt}
+                          </span>
+                        ) : (
+                          <span className="text-ink-muted opacity-70">
+                            {t('closed')}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </section>
 
-      {/* Location map — one pin. Reuses the home map component; coords are always
-          present (geog is NOT NULL). Hidden when no MapTiler key is set. */}
-      <section className="flex flex-col gap-3">
-        <h2 className={sectionHeading}>{t('mapHeading')}</h2>
-        <LocationsMap
-          pins={[
-            {
-              slug: loc.slug,
-              name: loc.brand.name,
-              lat: loc.location.lat,
-              lng: loc.location.lng,
-            },
-          ]}
-          locale={locale}
-          className="h-64"
-        />
-      </section>
+          {/* Location map — one pin. Reuses the home map component; coords are
+              always present (geog is NOT NULL). Hidden when no MapTiler key. */}
+          <section className="flex flex-col gap-3">
+            <h2 className={sectionHeading}>{t('mapHeading')}</h2>
+            <LocationsMap
+              pins={[
+                {
+                  slug: loc.slug,
+                  name: loc.brand.name,
+                  lat: loc.location.lat,
+                  lng: loc.location.lng,
+                },
+              ]}
+              locale={locale}
+              className="h-56"
+            />
+            <a
+              href={directionsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-fit items-center gap-1 text-sm text-paprika-accent hover:underline"
+            >
+              {t('directions')}
+              <ChevronRightIcon className="size-3.5" />
+            </a>
+          </section>
 
-      {/* Remaining photos */}
-      {restPhotos.length > 0 ? (
-        <section className="flex flex-col gap-3">
-          <h2 className={sectionHeading}>{t('photos')}</h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {restPhotos.map((p) => (
-              <div
-                key={p.id}
-                className="relative aspect-[4/3] overflow-hidden rounded-lg bg-raised"
-              >
-                <Image
-                  src={p.url}
-                  alt={p.altText ?? loc.brand.name}
-                  fill
-                  sizes="(min-width: 640px) 240px, 45vw"
-                  className="object-cover"
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {/* Opening hours */}
-      <section className="flex flex-col gap-3">
-        <h2 className={sectionHeading}>{t('openingHours')}</h2>
-        <table className="w-full max-w-sm overflow-hidden rounded-lg border border-line text-sm">
-          <tbody>
-            {WEEK.map((day) => {
-              const h = openByDay.get(day);
-              const isToday = day === today;
-              return (
-                <tr
-                  key={day}
-                  className={`border-b border-line last:border-b-0 ${
-                    isToday ? 'bg-raised' : ''
-                  }`}
-                >
-                  <td
-                    className={`px-3 py-2 ${isToday ? 'font-medium text-ink' : 'text-ink-muted'}`}
+          {/* Remaining photos */}
+          {restPhotos.length > 0 ? (
+            <section className="flex flex-col gap-3">
+              <h2 className={sectionHeading}>{t('photos')}</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {restPhotos.map((p) => (
+                  <div
+                    key={p.id}
+                    className="relative aspect-[4/3] overflow-hidden rounded-lg bg-raised"
                   >
-                    {t(`days.${day}`)}
-                    {isToday ? (
-                      <span className="ml-2 text-xs text-paprika-accent">
-                        {t('today')}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="num px-3 py-2 text-right">
-                    {h ? (
-                      <span className={isToday ? 'text-ink' : 'text-ink-muted'}>
-                        {h.opensAt}–{h.closesAt}
-                      </span>
-                    ) : (
-                      <span className="text-ink-muted opacity-70">
-                        {t('closed')}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </section>
-
-      {/* Menu */}
-      <section className="flex flex-col gap-4">
-        <h2 className={sectionHeading}>{t('menu')}</h2>
-        {loc.menu.length === 0 ? (
-          <p className="text-sm text-ink-muted">{t('noMenu')}</p>
-        ) : (
-          [...sections.entries()].map(([section, items]) => (
-            <div key={section || '_'} className="flex flex-col gap-1">
-              {section ? (
-                <h3 className="text-base font-semibold text-ink">{section}</h3>
-              ) : null}
-              <ul className="flex flex-col">
-                {items.map((item, i) => (
-                  <li
-                    key={i}
-                    className="flex flex-col gap-0.5 border-b border-line py-2.5 last:border-b-0"
-                  >
-                    <div className="flex items-baseline gap-2">
-                      {item.dishSlug ? (
-                        // The hook into price comparison: this dish exists on
-                        // other menus, so we can show what it costs elsewhere.
-                        <Link
-                          href={`/jelo/${item.dishSlug}`}
-                          className="group inline-flex items-baseline gap-0.5 text-ink hover:text-paprika-accent"
-                          title={t('comparePrices')}
-                        >
-                          {item.name}
-                          <ChevronRightIcon className="size-3.5 shrink-0 translate-y-0.5 text-paprika-accent" />
-                        </Link>
-                      ) : (
-                        <span className="text-ink">{item.name}</span>
-                      )}
-                      {/* Dotted leader stretches to fill the gap. */}
-                      <span className="leader h-3.5 min-w-4 flex-1" aria-hidden />
-                      <span className="num shrink-0 font-medium text-ink">
-                        {t('priceRsd', {amount: item.priceRsd})}
-                      </span>
-                    </div>
-                    {item.description ? (
-                      <span className="text-sm text-ink-muted">
-                        {item.description}
-                      </span>
-                    ) : null}
-                  </li>
+                    <Image
+                      src={p.url}
+                      alt={p.altText ?? loc.brand.name}
+                      fill
+                      sizes="160px"
+                      className="object-cover"
+                    />
+                  </div>
                 ))}
-              </ul>
-            </div>
-          ))
-        )}
-      </section>
+              </div>
+            </section>
+          ) : null}
 
-      {/* Report inaccuracy — plain link, zero JS. */}
-      <p className="text-sm text-ink-muted">
-        <a href={reportHref} className="underline hover:text-ink">
-          {t('reportInaccuracy')}
-        </a>
-      </p>
+          {/* Report inaccuracy — plain link, zero JS. */}
+          <p className="text-sm text-ink-muted">
+            <a href={reportHref} className="underline hover:text-ink">
+              {t('reportInaccuracy')}
+            </a>
+          </p>
+        </aside>
+      </div>
     </PageShell>
   );
 }

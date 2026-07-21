@@ -8,6 +8,7 @@
 ## Project
 - Next.js (App Router) + TypeScript + Tailwind, single app. No separate backend, no monorepo.
 - Supabase (Postgres + PostGIS), RLS on by default — every new table needs explicit policies.
+- The admin write path (`db` / storage service_role client) BYPASSES RLS by design (ADR 0001). The ONLY gate is `requireAdmin()`. Every `/admin` Server Action MUST call `await requireAdmin()` as its first line — before reading the payload — and any new one that touches `db` or Storage must do the same. No exceptions.
 - Business logic lives in `src/services/`, never in components or route handlers (blueprint section 6).
 - i18n: next-intl, `sr` default + `/en` routes. Every user-facing string goes through i18n from day one.
 - Search normalization (latinica/ćirilica/diacritics) lives in `src/search/` and must keep unit tests green.
