@@ -16,7 +16,9 @@
     "footerNote": "Prices and opening hours are entered by people and can go stale. Check with the venue."
   },
   "Home": {
+    "eyebrow": "Novi Sad · Belgrade",
     "tagline": "Google Maps for food — find the dish, not just the restaurant.",
+    "subtitle": "Compare prices dish by dish, filter by taste, city and opening hours — all in one place.",
     "searchPlaceholder": "Search dishes and restaurants…",
     "search": "Search",
     "allCities": "All cities",
