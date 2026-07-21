@@ -1,5 +1,5 @@
 import 'server-only';
-import {and, eq, sql} from 'drizzle-orm';
+import {and, eq, sql, type SQL} from 'drizzle-orm';
 import {db} from '@/src/db';
 import {
   cuisines,
@@ -37,6 +37,48 @@ import {
  */
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Holiday-aware "open right now" as a boolean SQL expression, shared by the home
+ * list and the profile so the two can never disagree. `locId` is the SQL for the
+ * enclosing row's location id (`l.id` in the list, `restaurant_locations.id` in
+ * the profile); `nowTs` is a Belgrade-local timestamp expression.
+ *
+ * A same-day `opening_hour_exceptions` row OVERRIDES the weekly `opening_hours`
+ * (§15/§16 — open-now is wrong on holidays without this). Past-midnight spans
+ * (`closes_at <= opens_at`) count on their own day after opening, and bleed into
+ * the next weekday until close.
+ */
+function openNowSql(locId: SQL, nowTs: SQL): SQL<boolean> {
+  return sql<boolean>`case
+    when exists (
+      select 1 from opening_hour_exceptions e
+      where e.location_id = ${locId} and e.date = (${nowTs})::date
+    ) then exists (
+      select 1 from opening_hour_exceptions e
+      where e.location_id = ${locId} and e.date = (${nowTs})::date
+        and e.closed = false
+        and e.opens_at is not null and e.closes_at is not null
+        and (
+          (e.closes_at > e.opens_at
+            and (${nowTs})::time >= e.opens_at and (${nowTs})::time < e.closes_at)
+          or (e.closes_at <= e.opens_at and (${nowTs})::time >= e.opens_at)
+        )
+    )
+    else exists (
+      select 1 from opening_hours oh
+      where oh.location_id = ${locId} and (
+        (oh.closes_at > oh.opens_at
+          and oh.day_of_week = extract(dow from (${nowTs}))::int
+          and (${nowTs})::time >= oh.opens_at and (${nowTs})::time < oh.closes_at)
+        or (oh.closes_at <= oh.opens_at and (
+          (oh.day_of_week = extract(dow from (${nowTs}))::int and (${nowTs})::time >= oh.opens_at)
+          or (oh.day_of_week = (extract(dow from (${nowTs}))::int + 6) % 7 and (${nowTs})::time < oh.closes_at)
+        ))
+      )
+    )
+  end`;
+}
 
 export async function createLocation(
   input: unknown,
@@ -247,6 +289,8 @@ export type PublicLocation = {
   };
   /** When a curator last confirmed this row; null → badge is hidden (no lie). */
   verifiedAt: Date | null;
+  /** Holiday-aware "open right now" (Europe/Belgrade), computed at request time. */
+  openNow: boolean;
   cuisines: string[]; // display names (nameSr), for JSON-LD servesCuisine
   hours: {day: number; opensAt: string; closesAt: string}[]; // open days only
   menu: {
@@ -282,6 +326,12 @@ export async function getPublishedLocationBySlug(
       verifiedAt: restaurantLocations.verifiedAt,
       lat: sql<number>`st_y(${restaurantLocations.geog}::geometry)`,
       lng: sql<number>`st_x(${restaurantLocations.geog}::geometry)`,
+      // Holiday-aware open-now, same expression the home list uses (respects
+      // opening_hour_exceptions). Computed at request time — the page is dynamic.
+      openNow: openNowSql(
+        sql`restaurant_locations.id`,
+        sql`(now() at time zone 'Europe/Belgrade')`,
+      ),
     })
     .from(restaurantLocations)
     .innerJoin(restaurants, eq(restaurants.id, restaurantLocations.restaurantId))
@@ -348,6 +398,7 @@ export async function getPublishedLocationBySlug(
       lng: row.lng,
     },
     verifiedAt: row.verifiedAt,
+    openNow: row.openNow,
     cuisines: cuisineRows.map((c) => c.name),
     hours: hours.map((h) => ({
       day: h.day,
@@ -439,47 +490,10 @@ export async function listPublishedLocations(
   const {city, openNow, cuisine, cards, late, price, near} = params;
   const qnorm = params.q ? normalize(params.q) : '';
 
-  // "open right now" as a reusable boolean expression (used in SELECT, and in
-  // WHERE when the filter is on). `n.ts` is the Belgrade-local now() from the CTE.
-  //
-  // A same-day holiday/special-day row in `opening_hour_exceptions` OVERRIDES the
-  // weekly schedule (blueprint §15/§16: open-now is wrong on holidays without
-  // this). If today has an exception, only that row decides open/closed; otherwise
-  // we fall back to the regular `opening_hours` below.
-  //
-  // ponytail: an exception governs its own calendar date's daytime only. A regular
-  // past-midnight span (or an exception's own past-midnight span) carrying INTO a
-  // holiday morning is treated as closed when that morning has a `closed`
-  // exception — which is the desired holiday semantics anyway. Upgrade path: model
-  // per-date carry-over if a real case ever needs the previous night to bleed in.
-  const openNowExpr = sql`case
-    when exists (
-      select 1 from opening_hour_exceptions e
-      where e.location_id = l.id and e.date = n.ts::date
-    ) then exists (
-      select 1 from opening_hour_exceptions e
-      where e.location_id = l.id and e.date = n.ts::date
-        and e.closed = false
-        and e.opens_at is not null and e.closes_at is not null
-        and (
-          (e.closes_at > e.opens_at
-            and n.ts::time >= e.opens_at and n.ts::time < e.closes_at)
-          or (e.closes_at <= e.opens_at and n.ts::time >= e.opens_at)
-        )
-    )
-    else exists (
-      select 1 from opening_hours oh
-      where oh.location_id = l.id and (
-        (oh.closes_at > oh.opens_at
-          and oh.day_of_week = extract(dow from n.ts)::int
-          and n.ts::time >= oh.opens_at and n.ts::time < oh.closes_at)
-        or (oh.closes_at <= oh.opens_at and (
-          (oh.day_of_week = extract(dow from n.ts)::int and n.ts::time >= oh.opens_at)
-          or (oh.day_of_week = (extract(dow from n.ts)::int + 6) % 7 and n.ts::time < oh.closes_at)
-        ))
-      )
-    )
-  end`;
+  // "open right now" (holiday-aware) as a reusable boolean — used in SELECT, and
+  // in WHERE when the filter is on. Shared with the profile via openNowSql so the
+  // two never disagree. `n.ts` is the Belgrade-local now() from the CTE below.
+  const openNowExpr = openNowSql(sql`l.id`, sql`n.ts`);
 
   // Price band from the location's AVERAGE current menu price (`pr` below).
   // Bucketed in SQL rather than in JS because the WHERE needs it too — an alias
