@@ -294,43 +294,46 @@ export async function getPublishedLocationBySlug(
     .limit(1);
   if (!row) return null;
 
-  const cuisineRows = await db
-    .select({name: cuisines.nameSr})
-    .from(restaurantCuisines)
-    .innerJoin(cuisines, eq(cuisines.id, restaurantCuisines.cuisineId))
-    .where(eq(restaurantCuisines.restaurantId, row.restaurantId))
-    .orderBy(cuisines.nameSr);
-
-  const hours = await db
-    .select({
-      day: openingHours.dayOfWeek,
-      opensAt: openingHours.opensAt,
-      closesAt: openingHours.closesAt,
-    })
-    .from(openingHours)
-    .where(eq(openingHours.locationId, row.id))
-    .orderBy(openingHours.dayOfWeek);
-
-  const menu = await db
-    .select({
-      name: menuItems.name,
-      sectionName: menuItems.sectionName,
-      description: menuItems.description,
-      dishSlug: dishes.slug,
-      // See getLocationForEdit: correlate on the spelled-out menu_items.id, not
-      // `${menuItems.id}` (which renders bare and binds to p.id → null).
-      priceRsd: sql<number>`(
-        select amount_rsd from menu_item_prices p
-        where p.menu_item_id = menu_items.id
-        order by valid_from desc limit 1
-      )`,
-    })
-    .from(menuItems)
-    .leftJoin(dishes, eq(dishes.id, menuItems.dishId))
-    .where(eq(menuItems.locationId, row.id))
-    .orderBy(menuItems.sortOrder);
-
-  const photos = await listLocationPhotos(row.id);
+  // These four all depend only on `row`, not on each other — run them in one
+  // round-trip instead of four. The DB is in eu-central-1, so each sequential
+  // await was a full cross-region hop; parallelizing is most of the profile's
+  // TTFB. (Region co-location in vercel.json cuts the per-hop cost too.)
+  const [cuisineRows, hours, menu, photos] = await Promise.all([
+    db
+      .select({name: cuisines.nameSr})
+      .from(restaurantCuisines)
+      .innerJoin(cuisines, eq(cuisines.id, restaurantCuisines.cuisineId))
+      .where(eq(restaurantCuisines.restaurantId, row.restaurantId))
+      .orderBy(cuisines.nameSr),
+    db
+      .select({
+        day: openingHours.dayOfWeek,
+        opensAt: openingHours.opensAt,
+        closesAt: openingHours.closesAt,
+      })
+      .from(openingHours)
+      .where(eq(openingHours.locationId, row.id))
+      .orderBy(openingHours.dayOfWeek),
+    db
+      .select({
+        name: menuItems.name,
+        sectionName: menuItems.sectionName,
+        description: menuItems.description,
+        dishSlug: dishes.slug,
+        // See getLocationForEdit: correlate on the spelled-out menu_items.id, not
+        // `${menuItems.id}` (which renders bare and binds to p.id → null).
+        priceRsd: sql<number>`(
+          select amount_rsd from menu_item_prices p
+          where p.menu_item_id = menu_items.id
+          order by valid_from desc limit 1
+        )`,
+      })
+      .from(menuItems)
+      .leftJoin(dishes, eq(dishes.id, menuItems.dishId))
+      .where(eq(menuItems.locationId, row.id))
+      .orderBy(menuItems.sortOrder),
+    listLocationPhotos(row.id),
+  ]);
 
   return {
     slug,
