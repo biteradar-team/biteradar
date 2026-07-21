@@ -169,10 +169,13 @@ export async function getLocationForEdit(
       name: menuItems.name,
       sectionName: menuItems.sectionName,
       description: menuItems.description,
-      // current price = latest valid_from (schema §7)
+      // current price = latest valid_from (schema §7).
+      // Correlate on menu_items.id spelled out — `${menuItems.id}` renders as a
+      // BARE "id" inside a raw sql`` subquery, which binds to menu_item_prices'
+      // own `id` column (p.menu_item_id = p.id, never true) and yields null.
       priceRsd: sql<number>`(
         select amount_rsd from menu_item_prices p
-        where p.menu_item_id = ${menuItems.id}
+        where p.menu_item_id = menu_items.id
         order by valid_from desc limit 1
       )`,
     })
@@ -291,9 +294,11 @@ export async function getPublishedLocationBySlug(
       sectionName: menuItems.sectionName,
       description: menuItems.description,
       dishSlug: dishes.slug,
+      // See getLocationForEdit: correlate on the spelled-out menu_items.id, not
+      // `${menuItems.id}` (which renders bare and binds to p.id → null).
       priceRsd: sql<number>`(
         select amount_rsd from menu_item_prices p
-        where p.menu_item_id = ${menuItems.id}
+        where p.menu_item_id = menu_items.id
         order by valid_from desc limit 1
       )`,
     })
