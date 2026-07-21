@@ -81,10 +81,17 @@ export default async function Home({params, searchParams}: Props) {
       ) : null}
       <SearchTracker q={q} count={results.length} />
 
-
-      <h1 className="max-w-2xl text-4xl font-bold text-balance sm:text-5xl">
-        {t('tagline')}
-      </h1>
+      <header className="flex flex-col gap-4">
+        <p className="font-expanded text-[11px] font-semibold uppercase text-paprika-accent">
+          {t('eyebrow')}
+        </p>
+        <h1 className="max-w-3xl text-4xl font-bold leading-[1.04] text-balance sm:text-5xl lg:text-6xl">
+          {t('tagline')}
+        </h1>
+        <p className="max-w-xl text-[15px] leading-relaxed text-ink-muted sm:text-base">
+          {t('subtitle')}
+        </p>
+      </header>
 
       <Filters
         className="flex flex-col gap-4"

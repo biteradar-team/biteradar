@@ -16,7 +16,9 @@
     "footerNote": "Cene i radno vreme unose ljudi i mogu da zastare. Proveri kod lokala."
   },
   "Home": {
+    "eyebrow": "Novi Sad · Beograd",
     "tagline": "Google Maps za hranu — pronađi jelo, ne samo restoran.",
+    "subtitle": "Uporedi cene jelo po jelo, filtriraj po ukusu, gradu i radnom vremenu — sve na jednom mestu.",
     "searchPlaceholder": "Pretraži jela i restorane…",
     "search": "Pretraži",
     "allCities": "Svi gradovi",
