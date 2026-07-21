@@ -50,9 +50,12 @@ export async function listDishOffers(params: {
   dishId: string;
   city?: City;
 }): Promise<DishOffer[]> {
+  // Correlate on the spelled-out menu_items.id: as a SELECT-field sql``,
+  // `${menuItems.id}` renders as a BARE "id", which binds to menu_item_prices'
+  // own `id` (p.menu_item_id = p.id, never true) and every price comes back null.
   const price = sql<number | null>`(
     select amount_rsd from menu_item_prices p
-    where p.menu_item_id = ${menuItems.id}
+    where p.menu_item_id = menu_items.id
     order by valid_from desc limit 1
   )`;
 

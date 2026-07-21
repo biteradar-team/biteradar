@@ -87,9 +87,16 @@ export async function addLocationPhotos(
       }
 
       const key = `locations/${locationId}/${crypto.randomUUID()}.webp`;
+      // Wrap the Buffer in a Blob. Handed a raw Node Buffer, storage-js falls
+      // through to sending it as a plain fetch body, which coerces the binary
+      // through a UTF-8 string — every byte ≥ 0x80 becomes 0xEF 0xBF 0xBD (�) and
+      // the stored .webp is corrupt (served fine, undecodable → broken image). A
+      // Blob takes storage-js's multipart path and uploads the bytes intact.
       const {error} = await admin.storage
         .from(BUCKET)
-        .upload(key, webp, {contentType: 'image/webp'});
+        .upload(key, new Blob([new Uint8Array(webp)], {type: 'image/webp'}), {
+          contentType: 'image/webp',
+        });
       if (error) throw new Error(`Otpremanje nije uspelo: ${error.message}`);
 
       // ponytail: upload-then-insert — if this insert fails the object orphans
