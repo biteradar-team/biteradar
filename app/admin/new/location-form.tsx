@@ -18,6 +18,13 @@ const DAYS = [
   'Subota',
 ];
 
+// 24h, 30-min steps: 00:00 … 23:30. A <select> (one tap, type-ahead, no AM/PM
+// scroll) beats the native time picker for entering venue hours.
+const TIME_OPTIONS = Array.from({length: 48}, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, '0');
+  return `${h}:${i % 2 ? '30' : '00'}`;
+});
+
 type HourRow = {closed: boolean; opensAt: string; closesAt: string};
 type MenuRow = {
   name: string;
@@ -76,6 +83,16 @@ export default function LocationForm({
       ? initial.menu.map((m) => ({...m}))
       : [{name: '', sectionName: '', description: '', priceRsd: ''}],
   );
+
+  // Bulk "set every day to these hours" — enter once, then tweak the odd days
+  // (closed Sunday, longer weekend) by hand.
+  const [bulkOpen, setBulkOpen] = useState('08:00');
+  const [bulkClose, setBulkClose] = useState('22:00');
+  function applyToAllDays() {
+    setHours((rows) =>
+      rows.map(() => ({closed: false, opensAt: bulkOpen, closesAt: bulkClose})),
+    );
+  }
 
   function setHour(i: number, patch: Partial<HourRow>) {
     setHours((rows) => rows.map((r, j) => (j === i ? {...r, ...patch} : r)));
@@ -186,6 +203,24 @@ export default function LocationForm({
       {/* Hours */}
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold">Radno vreme</h2>
+
+        {/* Bulk apply: fill every day with one open/close, then adjust below. */}
+        <div className="flex flex-wrap items-center gap-2 rounded border border-zinc-200 bg-zinc-50 p-2 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <span className="text-xs text-zinc-600 dark:text-zinc-400">
+            Postavi sve dane:
+          </span>
+          <TimeSelect value={bulkOpen} onChange={setBulkOpen} />
+          <span className="text-zinc-500">–</span>
+          <TimeSelect value={bulkClose} onChange={setBulkClose} />
+          <button
+            type="button"
+            onClick={applyToAllDays}
+            className="rounded border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          >
+            Primeni na sve
+          </button>
+        </div>
+
         <div className="flex flex-col gap-1.5">
           {hours.map((row, i) => (
             <div key={i} className="flex items-center gap-3 text-sm">
@@ -202,18 +237,14 @@ export default function LocationForm({
               </label>
               {!row.closed && (
                 <>
-                  <input
-                    type="time"
-                    className={`${input} w-32`}
+                  <TimeSelect
                     value={row.opensAt}
-                    onChange={(e) => setHour(i, {opensAt: e.target.value})}
+                    onChange={(v) => setHour(i, {opensAt: v})}
                   />
                   <span className="text-zinc-500">–</span>
-                  <input
-                    type="time"
-                    className={`${input} w-32`}
+                  <TimeSelect
                     value={row.closesAt}
-                    onChange={(e) => setHour(i, {closesAt: e.target.value})}
+                    onChange={(v) => setHour(i, {closesAt: v})}
                   />
                 </>
               )}
@@ -306,6 +337,35 @@ export default function LocationForm({
         </Link>
       </div>
     </form>
+  );
+}
+
+/** 24h time dropdown. Injects `value` if it's off the 30-min grid (e.g. an
+ * existing 08:45) so editing a venue never silently drops its saved time. */
+function TimeSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const options =
+    value && !TIME_OPTIONS.includes(value)
+      ? [value, ...TIME_OPTIONS]
+      : TIME_OPTIONS;
+  return (
+    <select
+      className={`${input} w-24`}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      <option value="">--:--</option>
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
   );
 }
 

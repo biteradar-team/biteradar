@@ -37,6 +37,48 @@ function belgradeWeekday(): number {
   return DAY_INDEX[name] ?? -1;
 }
 
+/** Minutes since midnight, now, in the venue's timezone (Europe/Belgrade). */
+function belgradeMinutes(): number {
+  const hhmm = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Belgrade',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date());
+  return toMinutes(hhmm);
+}
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Is the venue open right now? Checks today's span, plus a span from *yesterday*
+ * that runs past midnight into today (e.g. Fri 18:00–01:00 is still open at
+ * 00:30 Sat). Not holiday-aware — that's a separate task (open-now PR); when it
+ * lands, replace this with the shared helper.
+ */
+function isOpenNow(
+  hours: {day: number; opensAt: string; closesAt: string}[],
+  weekday: number,
+  nowMin: number,
+): boolean {
+  const yesterday = (weekday + 6) % 7;
+  for (const h of hours) {
+    const open = toMinutes(h.opensAt);
+    const close = toMinutes(h.closesAt);
+    if (open <= close) {
+      if (h.day === weekday && nowMin >= open && nowMin < close) return true;
+    } else {
+      // Wraps midnight: open on its own day from `open`, and next day until `close`.
+      if (h.day === weekday && nowMin >= open) return true;
+      if (h.day === yesterday && nowMin < close) return true;
+    }
+  }
+  return false;
+}
+
 type Params = {params: Promise<{locale: string; slug: string}>};
 
 export async function generateMetadata({params}: Params): Promise<Metadata> {
@@ -69,6 +111,17 @@ export default async function LocationProfile({params}: Params) {
   const openByDay = new Map(loc.hours.map((h) => [h.day, h]));
   const cards = loc.location.acceptsCards;
   const today = belgradeWeekday();
+  const openNow = isOpenNow(loc.hours, today, belgradeMinutes());
+
+  // Price range from the menu's actual prices — the product is price comparison,
+  // so state the range up front. Skip any 0/placeholder rows.
+  const prices = loc.menu.map((m) => m.priceRsd).filter((p) => p > 0);
+  const priceRange = prices.length
+    ? {min: Math.min(...prices), max: Math.max(...prices)}
+    : null;
+
+  // Google Maps directions to the venue's coordinates (no dep, opens the app on mobile).
+  const directionsHref = `https://www.google.com/maps/dir/?api=1&destination=${loc.location.lat},${loc.location.lng}`;
 
   const [hero, ...restPhotos] = loc.photos;
 
@@ -141,6 +194,14 @@ export default async function LocationProfile({params}: Params) {
         <div className="flex min-w-0 flex-col gap-8">
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap gap-2">
+              <Pill variant={openNow ? 'open' : 'warn'}>
+                {openNow ? t('openNow') : t('closedNow')}
+              </Pill>
+              {priceRange ? (
+                <Pill variant="brand">
+                  {t('priceRange', {min: priceRange.min, max: priceRange.max})}
+                </Pill>
+              ) : null}
               {cards === 'yes' ? (
                 <Pill variant="neutral">{t('cardsYes')}</Pill>
               ) : cards === 'no' ? (
@@ -277,6 +338,15 @@ export default async function LocationProfile({params}: Params) {
               locale={locale}
               className="h-56"
             />
+            <a
+              href={directionsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex w-fit items-center gap-1 text-sm text-paprika-accent hover:underline"
+            >
+              {t('directions')}
+              <ChevronRightIcon className="size-3.5" />
+            </a>
           </section>
 
           {/* Remaining photos */}
