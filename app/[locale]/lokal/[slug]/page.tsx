@@ -37,48 +37,6 @@ function belgradeWeekday(): number {
   return DAY_INDEX[name] ?? -1;
 }
 
-/** Minutes since midnight, now, in the venue's timezone (Europe/Belgrade). */
-function belgradeMinutes(): number {
-  const hhmm = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Belgrade',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date());
-  return toMinutes(hhmm);
-}
-
-function toMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map(Number);
-  return h * 60 + m;
-}
-
-/**
- * Is the venue open right now? Checks today's span, plus a span from *yesterday*
- * that runs past midnight into today (e.g. Fri 18:00–01:00 is still open at
- * 00:30 Sat). Not holiday-aware — that's a separate task (open-now PR); when it
- * lands, replace this with the shared helper.
- */
-function isOpenNow(
-  hours: {day: number; opensAt: string; closesAt: string}[],
-  weekday: number,
-  nowMin: number,
-): boolean {
-  const yesterday = (weekday + 6) % 7;
-  for (const h of hours) {
-    const open = toMinutes(h.opensAt);
-    const close = toMinutes(h.closesAt);
-    if (open <= close) {
-      if (h.day === weekday && nowMin >= open && nowMin < close) return true;
-    } else {
-      // Wraps midnight: open on its own day from `open`, and next day until `close`.
-      if (h.day === weekday && nowMin >= open) return true;
-      if (h.day === yesterday && nowMin < close) return true;
-    }
-  }
-  return false;
-}
-
 type Params = {params: Promise<{locale: string; slug: string}>};
 
 export async function generateMetadata({params}: Params): Promise<Metadata> {
@@ -111,7 +69,8 @@ export default async function LocationProfile({params}: Params) {
   const openByDay = new Map(loc.hours.map((h) => [h.day, h]));
   const cards = loc.location.acceptsCards;
   const today = belgradeWeekday();
-  const openNow = isOpenNow(loc.hours, today, belgradeMinutes());
+  // Holiday-aware, computed server-side in the same SQL the home list uses.
+  const openNow = loc.openNow;
 
   // Price range from the menu's actual prices — the product is price comparison,
   // so state the range up front. Skip any 0/placeholder rows.
